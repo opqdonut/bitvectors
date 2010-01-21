@@ -25,7 +25,7 @@ data StaticVector = StaticVector
       supers :: Array Int SuperBlock }
     
 cut :: Int -> [a] -> [[a]]
-cut n xs = map (take n) $ iterate (drop n) xs
+cut n xs = takeWhile (not.null) . map (take n) $ iterate (drop n) xs
 
 ilog2 :: Int -> Int
 ilog2 n = floor (logBase 2 (fromIntegral n))
@@ -49,7 +49,7 @@ encodeSuper n vals =
         undefined
       ,concat encoded)
         
-
+-- recode as a fold....
 
 staticVector :: Int -> [Bool] -> StaticVector
 staticVector n vals =
