@@ -45,7 +45,7 @@ infixl 7 `mydiv`
 mydiv a b = let (x,y) = quotRem a b in
             if y==0 then x else x+1
 
-listArray' n xs = listArray (0,n-1) xs
+listArray' n xs = listArray (0,n-1) (xs `using` seqList rwhnf)
 
 mapAccumL' _ s []        =  (s, [])
 mapAccumL' f s (x:xs)    =  (s'',y:ys)
@@ -86,7 +86,7 @@ staticVector n vals =
     in StaticVector
          blength
          slength
-         (listArray' (n`mydiv`slength) supers `using` seqArr rwhnf)
+         (listArray' (n`mydiv`slength) supers)
        
 
 address :: StaticVector -> Int -> (Int,Int,Int)
