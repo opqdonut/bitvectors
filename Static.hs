@@ -1,30 +1,30 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Static
   where
 
---import Data.Array
 import Data.Array.Unboxed
+import Control.Parallel.Strategies
+--import qualified Data.StorableVector as V
 import Data.List
 import Debug.Trace
 
 type Rank = Int
 type Loc = Int
+type V = UArray Int
 
-data Blocks = Blocks
-    {  }
-
-data SuperBlock = SuperBlock
-    { 
-      start :: Loc,
-      startrank :: Rank,
-      blocklocations :: UArray Int Loc,
-      blockranks :: UArray Int Rank}
+data SuperBlock = SuperBlock {
+      bits  :: !(V Bool),
+      start :: !Loc,
+      startrank :: ! Rank,
+      blocklocations :: ! (V Loc),
+      blockranks :: ! (V Rank)}
   deriving Show
 
 data StaticVector = StaticVector
-    { blength :: Loc,
-      slength :: Loc,
-      bits   :: UArray Int Bool,
-      supers :: Array Int SuperBlock }
+    { blength :: !Loc,
+      slength :: !Loc,
+      supers :: !(Array Int SuperBlock)}
     
 cut :: Int -> [a] -> [[a]]
 cut n xs = takeWhile (not.null) . map (take n) $ iterate (drop n) xs
@@ -36,19 +36,30 @@ rank = count id
 
 partialsums = scanl (+) 0
 
+--(!) = V.index
+
 ilog2 :: Int -> Int
-ilog2 n = floor (logBase 2 (fromIntegral n))
+ilog2 n = floor (logBase 2 (fromIntegral n) + 1)
 
-listArray' xs = listArray (0,length xs-1) xs
+infixl 7 `mydiv`
+mydiv a b = let (x,y) = quotRem a b in
+            if y==0 then x else x+1
 
+listArray' n xs = listArray (0,n-1) xs
 
+mapAccumL' _ s []        =  (s, [])
+mapAccumL' f s (x:xs)    =  (s'',y:ys)
+   where (s', !y) = f s x
+         (s'',ys) = mapAccumL f s' xs
+
+-- -- -- --
 
 encodeBlock :: [Bool] -> [Bool]
 encodeBlock = id
 decodeBlock = id        
 
 staticVector' :: Int -> (Loc,Rank) -> [Bool]
-                 -> ((Loc,Rank),([Bool],SuperBlock))
+                 -> ((Loc,Rank),SuperBlock)
 staticVector' blength (l,r) vals =
     let newl = l + length vals
         newr = r + rank vals
@@ -59,25 +70,24 @@ staticVector' blength (l,r) vals =
         encoded = map encodeBlock blocks
         locs = partialsums $ map length encoded
     in ((newl,newr),
-        (concat encoded,
-         SuperBlock l r (listArray' locs) (listArray' ranks)))
+        SuperBlock 
+          (listArray' (length (concat encoded)) (concat encoded))
+          l r
+          (listArray' (length locs) locs)
+          (listArray' (length ranks) ranks))
 
 staticVector :: Int -> [Bool] -> StaticVector
 staticVector n vals =
     let slength = (ilog2 n)^2
-        blength = ilog2 n `div` 2
+        blength = ilog2 n `mydiv` 2
 
-        (_, done) = mapAccumL (staticVector' blength) (0,0) $ cut slength vals
-        (bitss, supers) = unzip done
+        (_, supers) = {-# SCC "mAL" #-} mapAccumL' (staticVector' blength) (0,0) $ cut slength vals
 
     in StaticVector
          blength
          slength
-         (listArray' (concat bitss))
-         (listArray' supers)
-
-    
-test = staticVector 100 $ take 100 (cycle [True,False,False,False])
+         (listArray' (n`mydiv`slength) supers `using` seqArr rwhnf)
+       
 
 address :: StaticVector -> Int -> (Int,Int,Int)
 address s i = 
@@ -88,10 +98,10 @@ address s i =
 retrieveblock :: StaticVector -> Int -> Int -> [Bool]
 retrieveblock s superi blocki =
     let super = supers s ! superi
-        blockloc = start super + (blocklocations super ! blocki)
+        blockloc = (blocklocations super ! blocki)
         blocklength = (blocklocations super ! (blocki+1))
                       - (blocklocations super ! blocki)
-        encodedblock = map (bits s!) [blockloc..blockloc+blocklength-1]
+        encodedblock = map (bits super!) [blockloc..blockloc+blocklength-1]
     in decodeBlock encodedblock
 
 query :: StaticVector -> Int -> Bool
@@ -107,3 +117,6 @@ queryrank s i =
         blockrank = blockranks super ! blocki
         block = retrieveblock s superi blocki
     in  startrank super + blockrank + rank (take biti block)
+
+test = let n = 8*1024*10
+       in staticVector n $ take n (cycle [True,False,False,False])
