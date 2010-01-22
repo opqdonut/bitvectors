@@ -4,6 +4,7 @@ module Static
   where
 
 import Data.Array.Unboxed
+import Data.Array.ST
 import Control.Parallel.Strategies
 --import qualified Data.StorableVector as V
 import Data.List
@@ -18,16 +19,19 @@ data SuperBlock = SuperBlock {
       start :: !Loc,
       startrank :: ! Rank,
       blocklocations :: ! (V Loc),
-      blockranks :: ! (V Rank)}
+      blockranks :: ! (V Rank) }
   deriving Show
 
-data StaticVector = StaticVector
-    { blength :: !Loc,
+data StaticVector = StaticVector {
+      blength :: !Loc,
       slength :: !Loc,
-      supers :: !(Array Int SuperBlock)}
-    
+      supers :: !(Array Int SuperBlock) }
+                  
 cut :: Int -> [a] -> [[a]]
-cut n xs = takeWhile (not.null) . map (take n) $ iterate (drop n) xs
+cut n xs = go xs
+    where go [] = []
+          go xs = take n xs : go (drop n xs)
+--takeWhile (not.null) . map (take n) $ iterate (drop n) xs
 
 count :: (a -> Bool) -> [a] -> Int
 count f xs = length $ filter f xs
@@ -45,13 +49,21 @@ infixl 7 `mydiv`
 mydiv a b = let (x,y) = quotRem a b in
             if y==0 then x else x+1
 
-listArray' n xs = listArray (0,n-1) (xs `using` seqList rwhnf)
+listArray' n xs = listArray (0,n-1) xs
 
-mapAccumL' _ s []        =  (s, [])
-mapAccumL' f s (x:xs)    =  (s'',y:ys)
-   where (s', !y) = f s x
-         (s'',ys) = mapAccumL f s' xs
 
+mapAccumLArray :: Int -> (acc -> x -> (acc, y)) -> acc -> [x]
+               -> Array Int y
+mapAccumLArray n f init xs =
+    runSTArray $ do
+      arr <- newArray_ (0,n-1)
+      let loop i s (x:xs) = do let (s',y) = f s x
+                               y `seq` writeArray arr i y
+                               loop (i+1) s' xs
+          loop _ _ [] = return ()
+      loop 0 init xs
+      return arr
+            
 -- -- -- --
 
 encodeBlock :: [Bool] -> [Bool]
@@ -63,30 +75,31 @@ staticVector' :: Int -> (Loc,Rank) -> [Bool]
 staticVector' blength (l,r) vals =
     let newl = l + length vals
         newr = r + rank vals
+        nb = length vals `mydiv` blength
 
         blocks = cut blength vals
         ranks = partialsums $ map rank blocks
 
-        encoded = map encodeBlock blocks
-        locs = partialsums $ map length encoded
+        locs = partialsums $ map (length.encodeBlock) blocks
     in ((newl,newr),
         SuperBlock 
-          (listArray' (length (concat encoded)) (concat encoded))
+          (listArray' (last locs) (concatMap encodeBlock blocks))
           l r
-          (listArray' (length locs) locs)
-          (listArray' (length ranks) ranks))
+          (listArray' (nb+1) locs)
+          (listArray' (nb+1) ranks))
 
 staticVector :: Int -> [Bool] -> StaticVector
 staticVector n vals =
     let slength = (ilog2 n)^2
         blength = ilog2 n `mydiv` 2
+        supers =
+            {-# SCC "mAL" #-}
+            mapAccumLArray (n`mydiv`slength)
+                           (staticVector' blength)
+                           (0,0)
+                           (cut slength vals)
 
-        (_, supers) = {-# SCC "mAL" #-} mapAccumL' (staticVector' blength) (0,0) $ cut slength vals
-
-    in StaticVector
-         blength
-         slength
-         (listArray' (n`mydiv`slength) supers)
+    in StaticVector blength slength supers
        
 
 address :: StaticVector -> Int -> (Int,Int,Int)
