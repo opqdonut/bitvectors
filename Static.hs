@@ -51,16 +51,17 @@ mydiv a b = let (x,y) = quotRem a b in
 
 listArray' n xs = listArray (0,n-1) xs
 
-
 mapAccumLArray :: Int -> (acc -> x -> (acc, y)) -> acc -> [x]
                -> Array Int y
 mapAccumLArray n f init xs =
     runSTArray $ do
       arr <- newArray_ (0,n-1)
-      let loop i s (x:xs) = do let (s',y) = f s x
-                               y `seq` writeArray arr i y
-                               loop (i+1) s' xs
-          loop _ _ [] = return ()
+      let loop _ _ [] = return ()
+          loop i s (x:xs) =
+              {-# SCC "loop" #-}
+              do let (s',y) = f s x
+                 y `seq` writeArray arr i y
+                 loop (i+1) s' xs
       loop 0 init xs
       return arr
             
@@ -77,23 +78,21 @@ staticVector' blength (l,r) vals =
         newr = r + rank vals
         nb = length vals `mydiv` blength
 
-        blocks = cut blength vals
-        ranks = partialsums $ map rank blocks
-
-        locs = partialsums $ map (length.encodeBlock) blocks
+        ranks = partialsums . map rank $ cut blength vals
+        locs = partialsums . map (length.encodeBlock) $ cut blength vals
     in ((newl,newr),
         SuperBlock 
-          (listArray' (last locs) (concatMap encodeBlock blocks))
+          ({-# SCC "bits" #-} listArray' (last locs) (concatMap encodeBlock $ cut blength vals))
           l r
-          (listArray' (nb+1) locs)
-          (listArray' (nb+1) ranks))
+          ({-# SCC "locs" #-} listArray' (nb+1) locs)
+          ({-# SCC "ranks" #-} listArray' (nb+1) ranks))
 
 staticVector :: Int -> [Bool] -> StaticVector
 staticVector n vals =
     let slength = (ilog2 n)^2
         blength = ilog2 n `mydiv` 2
         supers =
-            {-# SCC "mAL" #-}
+            {-# SCC "supers" #-}
             mapAccumLArray (n`mydiv`slength)
                            (staticVector' blength)
                            (0,0)
