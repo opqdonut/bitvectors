@@ -70,7 +70,8 @@ staticVector' blength encode (l,r) vals =
 
         ranks = partialsums . map rank $ cut blength vals
         locs = partialsums . map (length.encode) $ cut blength vals
-    in ((newl,newr),
+    in --trace ("ratio "++show (length vals,last locs))
+      ((newl,newr),
         SuperBlock 
           ({-# SCC "bits" #-} listArray' (last locs) (concatMap encode $ cut blength vals))
           l r
