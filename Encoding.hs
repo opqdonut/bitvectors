@@ -3,23 +3,11 @@ module Encoding (order)
 
 import Util
 
-import qualified Data.Map as M
-import qualified Data.IntMap as IM
+import Test.QuickCheck
 import Data.List
 import Data.Bits
 import Data.Maybe
 import Debug.Trace
-
-data BiMap a b = BiMap (M.Map a b) (M.Map b a)
-fromList :: (Ord a,Ord b) => [(a,b)] -> BiMap a b
-fromList xs = BiMap (M.fromList xs) (M.fromList $ map turn xs)
-    where turn (a,b) = (b,a)
-
-decode :: Ord a => BiMap a b -> a -> b
-decode (BiMap m _) a = fromJust $ M.lookup a m
-
-encode :: Ord b => BiMap a b -> b -> a
-encode (BiMap _ m) b = fromJust $ M.lookup b m
 
 
 
@@ -44,29 +32,50 @@ unbitify xs = go 0 1 xs
 prop_unbitify_bitify i  = unbitify (bitify i) == i
 prop_bitify_unbitify xs = bitify (unbitify xs) == xs
 
+prop_bitify_ilog x = x>0 ==> length (bitify x) == ilog2 x
 
-strings :: Int -> Int -> [[Bool]]
-strings  0 0 = [[]]
-strings  _ 0 = []
-strings  i n = map (True:) (strings (i-1) (n-1))
-               ++ map (False:) (strings i (n-1))
+binom _ 0 = 1
+binom 0 _ = 0
+binom n k = binom (n-1) k + binom (n-1) (k-1)
 
-ordertable :: Int -> BiMap (Integer, Integer) [Bool]
-ordertable t = fromList [((fromIntegral c,o),x) | c<-[0..t],
-                                     (o,x)<-subtable c]
-    where
-      subtable :: Int -> [(Integer,[Bool])]
-      subtable i = zip [0..] . sort $ strings i t
+calc_o t c xs = go 0 t c xs
+    where go acc t c (False:xs)
+              = go acc                   (t-1) c     xs
+          go acc t c (True:xs)
+              = go (acc + binom (t-1) c) (t-1) (c-1) xs
+          go acc _ _ [] = acc
+
+calc_c xs = count id xs
+
+encode t xs = (c,o)
+    where c = calc_c xs
+          o = calc_o t c xs
+
+decode t (c,o) = go t c o
+ where 
+   go 0 _ _ = []
+   go t c o
+       | o >= binom (t-1) c = True: go (t-1) (c-1) (o-binom (t-1) c)
+       | otherwise          = False:go (t-1) c     o
+                             
+prop_encode_decode t (c,o) =
+    t > 0 && t <= 15 && t >= c && c >= 0 && o >= 0 && binom t c > o 
+          ==> encode t (decode t (c,o)) == (c,o)
+prop_decode_encode xs = let t = length xs in
+                        t < 20 ==> decode t (encode t xs) == xs
+
 
 
 order :: Int -> ([Bool] -> [Bool],
                  [Bool] -> [Bool])
 order t = (enc,dec)
-    where table = ordertable t
-          l = ilog2 t
-          enc x = let (c,o) = encode table (pad t x)
-                    in pad l (bitify c) ++ bitify o
+    where l = ilog2 t
+          enc x = let (c,o) = encode t x
+                  in pad l (bitify c) ++ bitify o
           dec x = let (c',o') = splitAt l x
-                  in decode table (unbitify c',unbitify o')
+                  in decode t (unbitify c',unbitify o')
 
+prop_order_1 xs = let t = length xs
+                      (e,d) = order t
+                  in t <= 15 ==> d (e xs) == xs
                   
