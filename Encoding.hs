@@ -4,6 +4,7 @@ module Encoding (order)
 import Util
 
 import Test.QuickCheck
+import Test.QuickCheck.Property
 import Data.List
 import Data.Bits
 import Data.Maybe
@@ -38,6 +39,7 @@ binom _ 0 = 1
 binom 0 _ = 0
 binom n k = binom (n-1) k + binom (n-1) (k-1)
 
+calc_o :: Int -> Integer -> [Bool] -> Integer
 calc_o t c xs = go 0 t c xs
     where go acc t c (False:xs)
               = go acc                   (t-1) c     xs
@@ -45,12 +47,15 @@ calc_o t c xs = go 0 t c xs
               = go (acc + binom (t-1) c) (t-1) (c-1) xs
           go acc _ _ [] = acc
 
-calc_c xs = count id xs
+calc_c :: [Bool] -> Integer
+calc_c xs = fromIntegral $ count id xs
 
+encode :: Int -> [Bool] -> (Integer,Integer)
 encode t xs = (c,o)
     where c = calc_c xs
           o = calc_o t c xs
 
+decode :: Int -> (Integer,Integer) -> [Bool]
 decode t (c,o) = go t c o
  where 
    go 0 _ _ = []
@@ -58,9 +63,13 @@ decode t (c,o) = go t c o
        | o >= binom (t-1) c = True: go (t-1) (c-1) (o-binom (t-1) c)
        | otherwise          = False:go (t-1) c     o
                              
-prop_encode_decode t (c,o) =
-    t > 0 && t <= 15 && t >= c && c >= 0 && o >= 0 && binom t c > o 
-          ==> encode t (decode t (c,o)) == (c,o)
+prop_encode_decode =
+    forAll (do t <- choose (1,15)
+               c <- choose (0,fromIntegral t -1)
+               o <- choose (0,binom t c -1)
+               return (t,c,o))
+      (\(t,c,o) -> encode t (decode t (c,o)) == (c,o))
+
 prop_decode_encode xs = let t = length xs in
                         t < 20 ==> decode t (encode t xs) == xs
 

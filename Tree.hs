@@ -55,5 +55,5 @@ mkbal xs = let (a,b) = splitAt (length xs `div` 2) xs
 prop_mkbal :: [Bool] -> Gen Prop
 prop_mkbal xs =
     not (null xs) ==>
-    do i <- choose (0,length xs-1)
-       liftBool $ find (index i) (mkbal xs) == Just (xs !! i)
+        forAll (choose (0,length xs-1))
+                   (\i -> find (index i) (mkbal xs) == Just (xs !! i))
