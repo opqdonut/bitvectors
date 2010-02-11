@@ -25,7 +25,7 @@ instance (Measured a v, Measured b v, Measured c v)
 (+++) :: Monoid a => a -> a -> a
 (+++) = mappend
 
-data Color = Color
+data Color = Color deriving Show
 
 data Tree ann val = Node { color :: Color,
                            annotation :: !ann,
@@ -33,6 +33,7 @@ data Tree ann val = Node { color :: Color,
                            right :: !(Tree ann val) }
                   | Leaf { value :: val }
                   | Empty
+                    deriving Show
 
 toList :: Tree a v -> [v]
 toList Empty = []
@@ -86,6 +87,7 @@ insert v = change (\x -> node x (Leaf v))
 -- -- -- Testing -- -- --
 
 data SizeRank = SizeRank {getSize :: Int, getRank :: Int}
+              deriving Show
 
 instance Monoid SizeRank where
     mappend (SizeRank a a') (SizeRank b b') =
@@ -100,14 +102,14 @@ index i = (>i).getSize
 rank :: Int->SizeRank->Bool
 rank i = (>i).getRank
 
-mkbal :: [Bool] -> Tree SizeRank Bool
+mkbal :: Measured a v => [v] -> Tree a v
 mkbal [] = Empty
 mkbal [x] = Leaf x
 mkbal xs = let (a,b) = splitAt (length xs `div` 2) xs
            in node (mkbal a) (mkbal b)
 
 prop_mkbal :: [Bool] -> Bool
-prop_mkbal xs = xs == toList (mkbal xs)
+prop_mkbal xs = xs == toList (mkbal xs :: Tree SizeRank Bool)
 
 metaprop_mkbal p xs = not (null xs) ==>
                       forAll (choose (0,length xs-1)) (p xs)
@@ -141,3 +143,4 @@ prop_insert_1 =
         let xs' = toList $ insert True (index i) (mkbal xs)
             (a,b) = splitAt (i+1) xs
         in xs' == a++True:b
+

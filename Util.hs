@@ -1,6 +1,8 @@
 module Util
   where
 
+import Data.Array.Unboxed
+
 cut :: Int -> [a] -> [[a]]
 cut n xs = go xs
     where go [] = []
@@ -19,3 +21,5 @@ infixl 7 `mydiv`
 mydiv a b = let (x,y) = quotRem a b in
             if y==0 then x else x+1
 a /// b = fromIntegral a / fromIntegral b
+
+listArray' n xs = listArray (0,n-1) xs

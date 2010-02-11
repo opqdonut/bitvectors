@@ -1,4 +1,4 @@
-module Encoding (order)
+module Encoding (order,pad)
   where
 
 import Util

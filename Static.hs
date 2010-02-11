@@ -38,10 +38,6 @@ rank = count id
 partialsums :: [Loc] -> [Loc]
 partialsums = scanl (+) 0
 
-
-
-listArray' n xs = listArray (0,n-1) xs
-
 mapAccumLArray :: Int -> (acc -> x -> (acc, y)) -> acc -> [x]
                -> Array Int y
 mapAccumLArray n f init xs =
