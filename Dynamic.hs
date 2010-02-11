@@ -36,5 +36,12 @@ prop_query xs = not (null xs) ==>
                 \i -> query (dynamicVector (length xs) xs) i == xs !! i
 
 
+queryrank :: DynamicVector -> Int -> Int
+queryrank dv i = r - (count id $ drop (i-(s-blength dv)) $ elems block)
+    where Just ((SizeRank s r),block) = find (index i) (tree dv)
 
-                   
+prop_queryrank :: [Bool] -> Gen Prop
+prop_queryrank xs = not (null xs) ==>
+                    forAll (choose (0,length xs-1)) $
+                    \i -> queryrank (dynamicVector (length xs) xs) i
+                          == count id (take i xs)
