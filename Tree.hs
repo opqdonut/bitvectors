@@ -32,14 +32,23 @@ data Tree ann val = Node { color :: Color,
                            left :: !(Tree ann val),
                            right :: !(Tree ann val) }
                   | Leaf { value :: val }
+                  | Empty
+
+toList :: Tree a v -> [v]
+toList Empty = []
+toList (Leaf v) = [v]
+toList (Node _ _ l r) = toList l ++ toList r
 
 instance Measured a v => Measured a (Tree a v) where
+    measure Empty = mempty
     measure (Leaf v) = measure v
     measure (Node _ a _ _) = a
 
 
 node :: Measured ann val => Tree ann val -> Tree ann val
      -> Tree ann val
+node Empty r = r
+node l Empty = l
 node l r = Node Color (measure l +++ measure r) l r
 
 find :: Measured a v => (a -> Bool) -> Tree a v -> Maybe (a,v)
@@ -53,6 +62,26 @@ find p t = go mempty t
         | p (acc +++ ann) = go (acc +++ measure l) r
         | otherwise = Nothing
 
+change :: Measured a v 
+       => (Tree a v -> Tree a v)
+       -> (a -> Bool)
+       -> Tree a v
+       -> Tree a v
+change f p t = go mempty t
+  where
+    go acc tree@(Node _ ann l r)
+        | p (acc +++ measure l) = node (go acc l) r
+        | p (acc +++ ann) = node l (go (acc +++ measure l) r)
+        | otherwise = tree
+    go acc leaf@(Leaf v)
+        | p (acc +++ measure v) = f leaf
+        | otherwise = leaf
+
+delete :: Measured a v => (a -> Bool) -> Tree a v -> Tree a v                           
+delete = change (const Empty)
+
+insert :: Measured a v => v -> (a -> Bool) -> Tree a v -> Tree a v
+insert v = change (\x -> node x (Leaf v))
 
 -- -- -- Testing -- -- --
 
@@ -72,9 +101,13 @@ rank :: Int->SizeRank->Bool
 rank i = (>i).getRank
 
 mkbal :: [Bool] -> Tree SizeRank Bool
+mkbal [] = Empty
 mkbal [x] = Leaf x
 mkbal xs = let (a,b) = splitAt (length xs `div` 2) xs
            in node (mkbal a) (mkbal b)
+
+prop_mkbal :: [Bool] -> Bool
+prop_mkbal xs = xs == toList (mkbal xs)
 
 metaprop_mkbal p xs = not (null xs) ==>
                       forAll (choose (0,length xs-1)) (p xs)
@@ -94,3 +127,17 @@ prop_rank =
               count id (take (s-1) xs) == i
           Nothing ->
               i >= count id xs
+
+prop_delete_1 :: [Bool] -> Gen Prop
+prop_delete_1 =
+    metaprop_mkbal $ \xs i ->
+        let xs' = toList $ delete (index i) (mkbal xs)
+            (a,_:c) = splitAt i xs
+        in xs' == a++c
+
+prop_insert_1 :: [Bool] -> Gen Prop
+prop_insert_1 =
+    metaprop_mkbal $ \xs i ->
+        let xs' = toList $ insert True (index i) (mkbal xs)
+            (a,b) = splitAt (i+1) xs
+        in xs' == a++True:b
