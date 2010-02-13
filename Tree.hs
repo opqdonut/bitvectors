@@ -126,7 +126,7 @@ prop_rank =
     metaprop_mkbal $ \xs i ->
         case find (rank i) (mkbal xs) of
           Just ((SizeRank s r),_) ->
-              count id (take (s-1) xs) == i
+              rank' (take (s-1) xs) == i
           Nothing ->
               i >= count id xs
 

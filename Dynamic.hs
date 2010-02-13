@@ -6,6 +6,8 @@ import Util
 import Encoding
 import Tree
 
+import Data.Maybe
+import Control.Monad
 import Test.QuickCheck
 import Test.QuickCheck.Property
 import Data.Array.Unboxed (UArray,(!),bounds,elems)
@@ -25,23 +27,44 @@ dynamicVector n xs = DynamicVector blength (mkbal blocks)
           blocks = map (listArray' blength . pad blength)
                    $ cut blength xs
 
+dvToList = concatMap elems . toList . tree
+
+instance Arbitrary DynamicVector where
+    arbitrary = do xs <- listOf1 arbitrary
+                   return $ dynamicVector (length xs) xs
+
+chooseindex :: DynamicVector -> Gen Int
+chooseindex dv = choose (0,pred . getSize . measure $ tree dv)
+chooserank :: DynamicVector -> Gen Int
+chooserank dv = choose (0,pred . getRank . measure $ tree dv)
+
 query :: DynamicVector -> Int -> Bool
 query dv i = block!(i-(s-blength dv))
     where Just ((SizeRank s r),block) = find (index i) (tree dv)
           
           
-prop_query :: [Bool] -> Gen Prop
-prop_query xs = not (null xs) ==>
-                forAll (choose (0,length xs-1)) $
-                \i -> query (dynamicVector (length xs) xs) i == xs !! i
-
+prop_query :: DynamicVector -> Gen Prop
+prop_query dv = forAll (chooseindex dv) $
+                  \i -> query dv i == dvToList dv !! i
 
 queryrank :: DynamicVector -> Int -> Int
-queryrank dv i = r - (count id $ drop (i-(s-blength dv)) $ elems block)
+queryrank dv i = r - restrank
     where Just ((SizeRank s r),block) = find (index i) (tree dv)
+          restrank = rank' $ drop (i-(s-blength dv)) $ elems block
 
 prop_queryrank :: [Bool] -> Gen Prop
 prop_queryrank xs = not (null xs) ==>
                     forAll (choose (0,length xs-1)) $
                     \i -> queryrank (dynamicVector (length xs) xs) i
-                          == count id (take i xs)
+                          == rank' (take i xs)
+
+select :: DynamicVector -> Int -> Maybe Int
+select dv i = do 
+  (SizeRank s r, block) <- find (rank i) (tree dv)
+  loc <- select' (i-(r-rank' (elems block))) (elems block) 
+  return $ s-blength dv+loc
+
+prop_select :: DynamicVector -> Gen Prop
+prop_select dv = forAll (chooserank dv) $
+                 \i -> select dv i == (select' i $ dvToList dv)
+          
