@@ -87,4 +87,44 @@ order t = (enc,dec)
 prop_order_1 xs = let t = length xs
                       (e,d) = order t
                   in t <= 15 ==> d (e xs) == xs
-                  
+
+safeinit :: [a] -> [a]
+safeinit [] = []
+safeinit xs = init xs                  
+
+elias_encode :: Int -> [Bool]
+elias_encode i = let l  = ilog2 i
+                     ll = ilog2 l
+                 in replicate ll False ++
+                    [True] ++
+                    safeinit (bitify l) ++
+                    safeinit (bitify i)
+
+elias_decode :: [Bool] -> (Int,[Bool])
+elias_decode (True:xs) = (0,xs)
+elias_decode xs = let (llpart, True:rest) = break id xs
+                      ll = length llpart
+                      (lpart, rest') = splitAt (ll-1) rest
+                      l  = fromIntegral $ unbitify (lpart++[True])
+                      (xpart, rest'') = splitAt (l-1) rest'
+                      x = fromIntegral $ unbitify (xpart++[True])
+                  in (x, rest'')
+
+prop_elias :: Int -> Property
+prop_elias i = i >= 0 ==> elias_decode (elias_encode i) == (i,[])     
+
+
+gap_encode :: [Bool] -> [Bool]
+gap_encode xs | all not xs = elias_encode (length xs)
+gap_encode xs = let (gap,True:rest) = break id xs
+                    code = elias_encode (length gap)
+                in code ++ gap_encode rest
+
+gap_decode :: [Bool] -> [Bool]
+gap_decode [] = []
+gap_decode xs = case elias_decode xs of
+                  (i,[]) -> replicate i False
+                  (i,rest) -> replicate i False ++ True:gap_decode rest
+
+prop_gap :: [Bool] -> Bool
+prop_gap xs = gap_decode (gap_encode xs) == xs
