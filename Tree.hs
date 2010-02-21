@@ -58,10 +58,10 @@ node l r = Node Color (measure l +++ measure r) l r
 find :: Measured a v => (a -> Bool) -> Tree a v -> Maybe (a,v)
 find p t = go mempty t
   where
-    go acc (Leaf a v)
+    go !acc (Leaf a v)
         | p (acc +++ a) = Just (acc +++ a,v)
         | otherwise = Nothing
-    go acc (Node _ ann l r)
+    go !acc (Node _ ann l r)
         | p (acc +++ measure l) = go acc l
         | p (acc +++ ann) = go (acc +++ measure l) r
         | otherwise = Nothing
@@ -89,10 +89,12 @@ insert v = change (\x -> node x (leaf v))
 
 -- -- -- Testing -- -- --
 
-data SizeRank = SizeRank {getSize :: Int, getRank :: Int}
-              deriving (Show,Eq)
+data SizeRank = SizeRank {getSize :: {-# UNPACK #-} !Int,
+                          getRank :: {-# UNPACK #-} !Int}
+    deriving (Show,Eq)
 
 instance Monoid SizeRank where
+    {-# SPECIALIZE instance Monoid SizeRank #-}
     mappend (SizeRank a a') (SizeRank b b') =
         SizeRank (a+b) (a'+b')
     mempty = SizeRank 0 0

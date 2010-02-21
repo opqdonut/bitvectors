@@ -1,9 +1,11 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, BangPatterns #-}
 
 module Util
   where
 
 import BitVector
+
+import Data.Bits
 
 import Data.Array.Unboxed
 import Test.QuickCheck
@@ -20,7 +22,9 @@ count f xs = length $ filter f xs
 --(!) = V.index
 
 ilog2 :: Int -> Int
-ilog2 n = ceiling (logBase 2 (fromIntegral n + 1))
+ilog2 n = go 0 n
+    where go !acc 0 = acc
+          go !acc n = go (acc+1) (shiftR n 1)
 
 infixl 7 `mydiv`
 mydiv a b = let (x,y) = quotRem a b in
