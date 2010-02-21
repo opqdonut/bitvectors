@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
-module Dynamic where
+module Dynamic (dynamicVector,DynamicVector(),BitVector(..))
+  where
 
 import Util
 import Encoding
 import Tree
+import BitVector
 
 import Data.Maybe
 import Control.Monad
@@ -20,6 +22,12 @@ instance Measured SizeRank (UArray Int Bool) where
 data DynamicVector = DynamicVector {blength :: Int,
                                     tree :: Tree SizeRank (V Bool)}
                      deriving Show
+
+instance BitVector DynamicVector where
+    query = _query
+    queryrank = _queryrank
+    select = _select
+    construct = dynamicVector
 
 dynamicVector :: Int -> [Bool] -> DynamicVector
 dynamicVector n xs = DynamicVector blength (mkbal blocks)
@@ -38,8 +46,8 @@ chooseindex dv = choose (0,pred . getSize . measure $ tree dv)
 chooserank :: DynamicVector -> Gen Int
 chooserank dv = choose (0,pred . getRank . measure $ tree dv)
 
-query :: DynamicVector -> Int -> Bool
-query dv i = block!(i-(s-blength dv))
+_query :: DynamicVector -> Int -> Bool
+_query dv i = block!(i-(s-blength dv))
     where Just ((SizeRank s r),block) = find (index i) (tree dv)
           
           
@@ -47,8 +55,8 @@ prop_query :: DynamicVector -> Gen Prop
 prop_query dv = forAll (chooseindex dv) $
                   \i -> query dv i == dvToList dv !! i
 
-queryrank :: DynamicVector -> Int -> Int
-queryrank dv i = r - restrank
+_queryrank :: DynamicVector -> Int -> Int
+_queryrank dv i = r - restrank
     where Just ((SizeRank s r),block) = find (index i) (tree dv)
           restrank = rank' $ drop (i-(s-blength dv)) $ elems block
 
@@ -58,8 +66,8 @@ prop_queryrank xs = not (null xs) ==>
                     \i -> queryrank (dynamicVector (length xs) xs) i
                           == rank' (take i xs)
 
-select :: DynamicVector -> Int -> Maybe Int
-select dv i = do 
+_select :: DynamicVector -> Int -> Maybe Int
+_select dv i = do 
   (SizeRank s r, block) <- find (rank i) (tree dv)
   loc <- select' (i-(r-rank' (elems block))) (elems block) 
   return $ s-blength dv+loc

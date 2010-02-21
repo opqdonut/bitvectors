@@ -1,10 +1,11 @@
 {-# LANGUAGE BangPatterns #-}
 
-module Static
+module Static (staticVector,StaticVector(),BitVector(..))
   where
 
 import Encoding
 import Util
+import BitVector
 
 import Data.Array.Unboxed
 import Data.Array.ST
@@ -32,6 +33,12 @@ data StaticVector = StaticVector {
       slength :: !Loc,
       supers :: !(Array Int SuperBlock) }
 
+instance BitVector StaticVector where
+    query = _query
+    queryrank = _queryrank
+    construct = staticVector
+    select = undefined
+                
 rank :: [Bool] -> Rank                  
 rank = count id
 
@@ -104,14 +111,14 @@ retrieveblock s superi blocki =
         encodedblock = map (bits super!) [blockloc..blockloc+blocklength-1]
     in decode s encodedblock
 
-query :: StaticVector -> Int -> Bool
-query s i =
+_query :: StaticVector -> Int -> Bool
+_query s i =
     let (superi,blocki,biti) = address s i
         super = supers s ! superi
         block = retrieveblock s superi blocki
     in block !! biti
           
-queryrank s i =
+_queryrank s i =
     let (superi,blocki,biti) = address s i
         super = supers s ! superi
         blockrank = blockranks super ! blocki
