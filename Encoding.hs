@@ -1,4 +1,4 @@
-module Encoding (order,pad)
+module Encoding (order,pad,gap_encode',gap_encode,gap_decode)
   where
 
 import Util
@@ -30,8 +30,9 @@ unbitify xs = go 0 1 xs
           go acc k (False:xs) = go acc     (2*k) xs
 
 
-prop_unbitify_bitify i  = unbitify (bitify i) == i
-prop_bitify_unbitify xs = bitify (unbitify xs) == xs
+prop_unbitify_bitify i  = i>=0 ==> unbitify (bitify i) == i
+prop_bitify_unbitify xs' = 
+    let xs = xs'++[True] in bitify (unbitify xs) == xs
 
 prop_bitify_ilog x = x>0 ==> length (bitify x) == ilog2 x
 
@@ -64,14 +65,14 @@ decode t (c,o) = go t c o
        | otherwise          = False:go (t-1) c     o
                              
 prop_encode_decode =
-    forAll (do t <- choose (1,15)
+    forAll (do t <- choose (1,18)
                c <- choose (0,fromIntegral t -1)
                o <- choose (0,binom t c -1)
                return (t,c,o))
       (\(t,c,o) -> encode t (decode t (c,o)) == (c,o))
 
 prop_decode_encode xs = let t = length xs in
-                        t < 20 ==> decode t (encode t xs) == xs
+                        t < 18 ==> decode t (encode t xs) == xs
 
 
 
@@ -113,12 +114,14 @@ elias_decode xs = let (llpart, True:rest) = break id xs
 prop_elias :: Int -> Property
 prop_elias i = i >= 0 ==> elias_decode (elias_encode i) == (i,[])     
 
+gap_encode' :: [Bool] -> [[Bool]]
+gap_encode' xs | all not xs = [elias_encode $ length xs]
+gap_encode' xs = let (gap,True:rest) = break id xs
+                     code = elias_encode $ length gap
+                 in code : gap_encode' rest
 
 gap_encode :: [Bool] -> [Bool]
-gap_encode xs | all not xs = elias_encode (length xs)
-gap_encode xs = let (gap,True:rest) = break id xs
-                    code = elias_encode (length gap)
-                in code ++ gap_encode rest
+gap_encode xs = concat $ gap_encode' xs
 
 gap_decode :: [Bool] -> [Bool]
 gap_decode [] = []
@@ -128,3 +131,4 @@ gap_decode xs = case elias_decode xs of
 
 prop_gap :: [Bool] -> Bool
 prop_gap xs = gap_decode (gap_encode xs) == xs
+

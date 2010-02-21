@@ -31,20 +31,23 @@ data Tree ann val = Node { color :: Color,
                            annotation :: !ann,
                            left :: !(Tree ann val),
                            right :: !(Tree ann val) }
-                  | Leaf { value :: val }
+                  | Leaf { annotation :: !ann,
+                           value :: val }
                   | Empty
                     deriving Show
 
 toList :: Tree a v -> [v]
 toList Empty = []
-toList (Leaf v) = [v]
+toList (Leaf _ v) = [v]
 toList (Node _ _ l r) = toList l ++ toList r
 
 instance Measured a v => Measured a (Tree a v) where
     measure Empty = mempty
-    measure (Leaf v) = measure v
+    measure (Leaf a _) = a
     measure (Node _ a _ _) = a
 
+leaf :: Measured ann val => val -> Tree ann val
+leaf v = Leaf (measure v) v
 
 node :: Measured ann val => Tree ann val -> Tree ann val
      -> Tree ann val
@@ -55,8 +58,8 @@ node l r = Node Color (measure l +++ measure r) l r
 find :: Measured a v => (a -> Bool) -> Tree a v -> Maybe (a,v)
 find p t = go mempty t
   where
-    go acc (Leaf v)
-        | p (acc +++ measure v) = Just ((acc +++ measure v),v)
+    go acc (Leaf a v)
+        | p (acc +++ a) = Just (acc +++ a,v)
         | otherwise = Nothing
     go acc (Node _ ann l r)
         | p (acc +++ measure l) = go acc l
@@ -74,20 +77,20 @@ change f p t = go mempty t
         | p (acc +++ measure l) = node (go acc l) r
         | p (acc +++ ann) = node l (go (acc +++ measure l) r)
         | otherwise = tree
-    go acc leaf@(Leaf v)
-        | p (acc +++ measure v) = f leaf
+    go acc leaf@(Leaf {})
+        | p (acc +++ measure leaf) = f leaf
         | otherwise = leaf
 
 delete :: Measured a v => (a -> Bool) -> Tree a v -> Tree a v                           
 delete = change (const Empty)
 
 insert :: Measured a v => v -> (a -> Bool) -> Tree a v -> Tree a v
-insert v = change (\x -> node x (Leaf v))
+insert v = change (\x -> node x (leaf v))
 
 -- -- -- Testing -- -- --
 
 data SizeRank = SizeRank {getSize :: Int, getRank :: Int}
-              deriving Show
+              deriving (Show,Eq)
 
 instance Monoid SizeRank where
     mappend (SizeRank a a') (SizeRank b b') =
@@ -102,17 +105,27 @@ index i = (>i).getSize
 rank :: Int->SizeRank->Bool
 rank i = (>i).getRank
 
-mkbal :: Measured a v => [v] -> Tree a v
-mkbal [] = Empty
-mkbal [x] = Leaf x
-mkbal xs = let (a,b) = splitAt (length xs `div` 2) xs
-           in node (mkbal a) (mkbal b)
+build :: Measured a v => [Tree a v] -> Tree a v
+build ts = tree
+    where [tree] = build' ts
+          build' []       = []
+          build' [x]      = [x]
+          build' (l:r:xs) = build' (node l r : build' xs)
 
-prop_mkbal :: [Bool] -> Bool
-prop_mkbal xs = xs == toList (mkbal xs :: Tree SizeRank Bool)
+mkbal :: Measured a v => [v] -> Tree a v
+mkbal xs = build $ map leaf xs
+
+prop_mkbal :: [Bool] -> Gen Prop
+prop_mkbal xs = not (null xs) ==>
+                xs == toList (mkbal xs :: Tree SizeRank Bool)
 
 metaprop_mkbal p xs = not (null xs) ==>
                       forAll (choose (0,length xs-1)) (p xs)
+
+prop_sizerank :: [Bool] -> Gen Prop
+prop_sizerank xs = not (null xs) ==>
+                   let t = mkbal xs in
+                   annotation t == SizeRank (length xs) (rank' xs)
 
 prop_index :: [Bool] -> Gen Prop
 prop_index = 

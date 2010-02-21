@@ -1,5 +1,9 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module Util
   where
+
+import BitVector
 
 import Data.Array.Unboxed
 import Test.QuickCheck
@@ -24,6 +28,13 @@ mydiv a b = let (x,y) = quotRem a b in
 a /// b = fromIntegral a / fromIntegral b
 
 listArray' n xs = listArray (0,n-1) xs
+
+instance BitVector [Bool] where
+    query = (!!)
+    queryrank xs i = rank' $ take i xs
+    select = select
+    construct = const id
+    
 
 rank' :: [Bool] -> Int
 rank' xs = count id xs
