@@ -35,12 +35,14 @@ blockify :: Int -> [Bool] -> [Tree SizeRank (V Bool)]
 blockify i xs = go 0 [] bs where
     bs = gap_encode' xs
     enc l = let dat = concat . reverse $ l
-            in (leaf . listArray' (length dat) $ dat)
+            in leaf . listArray' (length dat) $ dat
     go _   l [] = enc l : []
     go acc l (b:bs)
         | acc < i = go (acc + length b) (b:l) bs
         -- NB! the [True]: is an ugly hack
-        | otherwise = enc ([True]:l) : go 0 [] (b:bs)
+        | otherwise = 
+            let lef = enc ([True]:l) in
+            lef `seq` (lef : go 0 [] (b:bs))
 
 dynamicVector :: Int -> [Bool] -> DynamicVector
 dynamicVector n xs = DynamicVector blength (build blocks)

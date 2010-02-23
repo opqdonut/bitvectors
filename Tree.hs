@@ -32,7 +32,7 @@ data Tree ann val = Node { color :: Color,
                            left :: !(Tree ann val),
                            right :: !(Tree ann val) }
                   | Leaf { annotation :: !ann,
-                           value :: val }
+                           value :: !val }
                   | Empty
                     deriving Show
 
@@ -59,7 +59,7 @@ find :: Measured a v => (a -> Bool) -> Tree a v -> Maybe (a,v)
 find p t = go mempty t
   where
     go !acc (Leaf a v)
-        | p (acc +++ a) = Just (acc +++ a,v)
+        | p (acc +++ a) = let x = acc+++a in x `seq` Just (x,v)
         | otherwise = Nothing
     go !acc (Node _ ann l r)
         | p (acc +++ measure l) = go acc l
