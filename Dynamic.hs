@@ -46,7 +46,7 @@ blockify i xs = go 0 [] bs where
 
 dynamicVector :: Int -> [Bool] -> DynamicVector
 dynamicVector n xs = DynamicVector blength (build blocks)
-    where blength = ilog2 n
+    where blength = 4 * ilog2 n
           blocks = blockify blength xs
 
 dvToList = concatMap (gap_decode . elems) . toList . tree
