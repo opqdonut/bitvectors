@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 
-module Static (staticVector,StaticVector(),BitVector(..))
+module Static (staticVector,StaticVector(),BitVector(..),
+              blength,slength,blocklocations,supers)
   where
 
 import Encoding
@@ -84,7 +85,9 @@ staticVector' blength encode (l,r) vals =
 staticVector :: Int -> [Bool] -> StaticVector
 staticVector n vals =
     let slength = (ilog2 n)^2
-        blength = slength `mydiv` (2 * ilog2 n)
+        -- we want blength to be 2^k-1 to make order encoding perform well
+        blength = pred . roundUpToPowerOf 2 $
+                  slength `mydiv` (2 * ilog2 n)
         (enc,dec) = order blength
         supers =
             {-# SCC "supers" #-}

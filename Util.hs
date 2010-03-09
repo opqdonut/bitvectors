@@ -26,6 +26,10 @@ ilog2 n = go 0 n
     where go !acc 0 = acc
           go !acc n = go (acc+1) (shiftR n 1)
 
+roundUpToPowerOf k x = go 1
+    where go acc | acc >= x  = acc
+                 | otherwise = go (k*acc)
+
 infixl 7 `mydiv`
 mydiv a b = let (x,y) = quotRem a b in
             if y==0 then x else x+1
