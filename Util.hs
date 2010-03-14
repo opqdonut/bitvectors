@@ -6,6 +6,7 @@ module Util
 import BitVector
 
 import Data.Bits
+import Data.MemoCombinators as Memo
 
 import Data.Array.Unboxed
 import Test.QuickCheck
@@ -58,4 +59,11 @@ prop_select' :: [Bool] -> Int -> Bool
 prop_select' xs i = case select' i xs of
                       Nothing -> i >= rank' xs || i < 0
                       Just loc -> i == rank' (take loc xs)
+
+binom :: Integer -> Integer -> Integer
+binom = Memo.memo2 Memo.integral Memo.integral binom'
+    where binom' _ 0 = 1
+          binom' 0 _ = 0
+          binom' n k =
+              binom (n-1) k + binom (n-1) (k-1)
 

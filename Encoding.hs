@@ -36,11 +36,7 @@ prop_bitify_unbitify xs' =
 
 prop_bitify_ilog x = x>0 ==> length (bitify x) == ilog2 x
 
-binom _ 0 = 1
-binom 0 _ = 0
-binom n k = binom (n-1) k + binom (n-1) (k-1)
-
-calc_o :: Int -> Integer -> [Bool] -> Integer
+calc_o :: Integer -> Integer -> [Bool] -> Integer
 calc_o t c xs = go 0 t c xs
     where go acc t c (False:xs)
               = go acc                   (t-1) c     xs
@@ -51,12 +47,12 @@ calc_o t c xs = go 0 t c xs
 calc_c :: [Bool] -> Integer
 calc_c xs = fromIntegral $ count id xs
 
-encode :: Int -> [Bool] -> (Integer,Integer)
+encode :: Integer -> [Bool] -> (Integer,Integer)
 encode t xs = (c,o)
     where c = calc_c xs
           o = calc_o t c xs
 
-decode :: Int -> (Integer,Integer) -> [Bool]
+decode :: Integer -> (Integer,Integer) -> [Bool]
 decode t (c,o) = go t c o
  where 
    go 0 _ _ = []
@@ -71,7 +67,7 @@ prop_encode_decode =
                return (t,c,o))
       (\(t,c,o) -> encode t (decode t (c,o)) == (c,o))
 
-prop_decode_encode xs = let t = length xs in
+prop_decode_encode xs = let t = genericLength xs in
                         t < 18 ==> decode t (encode t xs) == xs
 
 
@@ -80,10 +76,10 @@ order :: Int -> ([Bool] -> [Bool],
                  [Bool] -> [Bool])
 order t = (enc,dec)
     where l = ilog2 t
-          enc x = let (c,o) = encode t x
+          enc x = let (c,o) = encode (fromIntegral t) x
                   in pad l (bitify c) ++ bitify o
           dec x = let (c',o') = splitAt l x
-                  in decode t (unbitify c',unbitify o')
+                  in decode (fromIntegral t) (unbitify c',unbitify o')
 
 prop_order_1 xs = let t = length xs
                       (e,d) = order t
