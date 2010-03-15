@@ -60,8 +60,13 @@ prop_select' xs i = case select' i xs of
                       Nothing -> i >= rank' xs || i < 0
                       Just loc -> i == rank' (take loc xs)
 
+binom_max = 100
+
 binom :: Integer -> Integer -> Integer
-binom = Memo.memo2 Memo.integral Memo.integral binom'
+binom = Memo.memo2
+          (Memo.unsafeArrayRange (0,binom_max))
+          (Memo.unsafeArrayRange (0,binom_max))
+          binom'
     where binom' _ 0 = 1
           binom' 0 _ = 0
           binom' n k =

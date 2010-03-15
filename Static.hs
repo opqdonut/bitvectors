@@ -105,6 +105,9 @@ address s i =
         (blocki,biti) = quotRem rem (blength s)
     in (superi,blocki,biti)
 
+-- TODO: no need to decode here, length and rank are recoverable from encoding.
+-- rewrite as loops.
+
 retrieveblock :: StaticVector -> Int -> Int -> [Bool]
 retrieveblock s superi blocki =
     let super = supers s ! superi

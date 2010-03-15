@@ -49,8 +49,8 @@ instance Measured a v => Measured a (Tree a v) where
 leaf :: Measured ann val => val -> Tree ann val
 leaf v = Leaf (measure v) v
 
-node :: Measured ann val => Tree ann val -> Tree ann val
-     -> Tree ann val
+node :: Measured ann val =>
+        Tree ann val -> Tree ann val -> Tree ann val
 node Empty r = r
 node l Empty = l
 node l r = Node Color (measure l +++ measure r) l r
@@ -65,6 +65,17 @@ find p t = go mempty t
         | p (acc +++ measure l) = go acc l
         | p (acc +++ ann) = go (acc +++ measure l) r
         | otherwise = Nothing
+
+{-
+-- Okasaki's Red-Black balancing
+balance :: Measured a v =>
+           Color -> Tree a v -> Tree a v -> Tree a v
+balance Red l r = node Red l r
+balance Black (Node Red _ (Node Red _ w x) y) z = node Red (node Black w x) (node Black y z)
+balance Black (Node Red _ w (Node Red _ x y)) z = node Red (node Black w x) (node Black y z)
+balance Black w (Node Red _ (Node Red _ x y) z) = node Red (node Black w x) (node Black y z)
+balance Black w (Node Red _ x (Node Red _ y z)) = node Red (node Black w x) (node Black y z)
+-}
 
 change :: Measured a v 
        => (Tree a v -> Tree a v)

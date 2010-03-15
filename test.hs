@@ -18,6 +18,8 @@ main = do
 
   let input = take n (cycle [True,False,False,False,False,False,False])
 
+  print (s,n,k)
+
   case s of "s" -> test (staticVector n input) n k
             "d" -> test (dynamicVector n input) n k
 
@@ -30,7 +32,12 @@ test t n k = do
   --let bits = sum $ map (last . elems . blocklocations) $ elems $ supers test
   --putStrLn $ "bits: " ++ show bits ++ " (" ++ show (bits///n) ++ ")"
 
-  inds <- sequence $ replicate k (randomRIO (0,n-1))
+  let go :: Int -> IO ()
+      go 0 = return ()
+      go n = {-# SCC "go" #-}
+             do x <- {-# SCC "random" #-} randomRIO (0,n-1)
+                {-# SCC "print" #-} print (x,query t x,queryrank t x)
+                go (n-1)
 
-  forM_ inds $ \x -> print (x,query t x,queryrank t x)
+  go k
 

@@ -1,9 +1,9 @@
 #!/bin/sh
 SIZE=$((1024*1024*2))
 
-for i in 10 50 100 500 1000; do
-    for x in s d; do
-	echo -n $x $SIZE $i " "
-	/usr/bin/time -f "%e %U %s" ./test $RUN $x $SIZE $i > /dev/null
+for i in 10 100000; do
+    for COMMAND in "./test s" "./test d" "../cst_v_1_0/mytest"; do
+	echo -n $COMMAND $SIZE $i " "
+	/usr/bin/time -f "%e %U %s" $COMMAND $SIZE $i > /dev/null
     done
 done
