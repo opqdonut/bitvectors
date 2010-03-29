@@ -1,4 +1,4 @@
-module Encoding (order,pad,gap_encode',gap_encode,gap_decode)
+module Encoding (order,gap,pad,gap_encode',gap_encode,gap_decode,Encoder,Decoder)
   where
 
 import Util
@@ -10,12 +10,13 @@ import Data.Bits
 import Data.Maybe
 import Debug.Trace
 
-
-
 {-
 bitify :: Int -> Integer -> [Bool]
 bitify n i = map (testBit i) [0..n-1]
 -}
+
+type Encoder = [Bool]->[Bool]
+type Decoder = [Bool]->[Bool]
 
 bitify 0 = []
 bitify n | even n    = False : bitify (n`div`2)
@@ -47,39 +48,39 @@ calc_o t c xs = go 0 t c xs
 calc_c :: [Bool] -> Integer
 calc_c xs = fromIntegral $ count id xs
 
-encode :: Integer -> [Bool] -> (Integer,Integer)
-encode t xs = (c,o)
+
+encode_order :: Integer -> [Bool] -> (Integer,Integer)
+encode_order t xs = (c,o)
     where c = calc_c xs
           o = calc_o t c xs
 
-decode :: Integer -> (Integer,Integer) -> [Bool]
-decode t (c,o) = go t c o
+decode_order :: Integer -> (Integer,Integer) -> [Bool]
+decode_order t (c,o) = go t c o
  where 
    go 0 _ _ = []
    go t c o
        | o >= binom (t-1) c = True: go (t-1) (c-1) (o-binom (t-1) c)
        | otherwise          = False:go (t-1) c     o
                              
-prop_encode_decode =
+prop_order_encode_decode =
     forAll (do t <- choose (1,18)
                c <- choose (0,fromIntegral t -1)
                o <- choose (0,binom t c -1)
                return (t,c,o))
-      (\(t,c,o) -> encode t (decode t (c,o)) == (c,o))
+      (\(t,c,o) -> encode_order t (decode_order t (c,o)) == (c,o))
 
 prop_decode_encode xs = let t = genericLength xs in
-                        t < 18 ==> decode t (encode t xs) == xs
+                        t < 18 ==> decode_order t (encode_order t xs) == xs
 
 
 
-order :: Int -> ([Bool] -> [Bool],
-                 [Bool] -> [Bool])
+order :: Int -> (Encoder,Decoder)
 order t = (enc,dec)
     where l = ilog2 t
-          enc x = let (c,o) = encode (fromIntegral t) x
+          enc x = let (c,o) = encode_order (fromIntegral t) x
                   in pad l (bitify c) ++ bitify o
           dec x = let (c',o') = splitAt l x
-                  in decode (fromIntegral t) (unbitify c',unbitify o')
+                  in decode_order (fromIntegral t) (unbitify c',unbitify o')
 
 prop_order_1 xs = let t = length xs
                       (e,d) = order t
@@ -116,10 +117,10 @@ gap_encode' xs = let (gap,True:rest) = break id xs
                      code = elias_encode $ length gap
                  in code : gap_encode' rest
 
-gap_encode :: [Bool] -> [Bool]
+gap_encode :: Encoder
 gap_encode xs = concat $ gap_encode' xs
 
-gap_decode :: [Bool] -> [Bool]
+gap_decode :: Decoder
 gap_decode [] = []
 gap_decode xs = case elias_decode xs of
                   (i,[]) -> replicate i False
@@ -128,3 +129,5 @@ gap_decode xs = case elias_decode xs of
 prop_gap :: [Bool] -> Bool
 prop_gap xs = gap_decode (gap_encode xs) == xs
 
+gap :: (Encoder,Decoder)
+gap = (gap_encode,gap_decode)

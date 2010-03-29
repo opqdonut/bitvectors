@@ -20,7 +20,8 @@ main = do
 
   print (s,n,k)
 
-  case s of "s" -> test (staticVector n input) n k
+  case s of "so" -> test (staticVector_ord n input) n k
+            "sg" -> test (staticVector_gap n input) n k
             "d" -> test (dynamicVector n input) n k
 
 

@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 
-module Static (staticVector,StaticVector(),BitVector(..),
-              blength,slength,blocklocations,supers)
+module Static (staticVector_ord,staticVector_gap,StaticVector(),BitVector(..),
+               blength,slength,blocklocations,supers)
   where
 
 import Encoding
@@ -37,7 +37,7 @@ data StaticVector = StaticVector {
 instance BitVector StaticVector where
     query = _query
     queryrank = _queryrank
-    construct = staticVector
+    construct = staticVector_gap
     select = undefined
                 
 rank :: [Bool] -> Rank                  
@@ -82,14 +82,27 @@ staticVector' blength encode (l,r) vals =
           ({-# SCC "locs" #-} listArray' (nb+1) locs)
           ({-# SCC "ranks" #-} listArray' (nb+1) ranks))
 
-staticVector :: Int -> [Bool] -> StaticVector
-staticVector n vals =
+staticVector_ord :: Int -> [Bool] -> StaticVector
+staticVector_ord n =
     let slength = (ilog2 n)^2
         -- we want blength to be 2^k-1 to make order encoding perform well
         blength = pred . roundUpToPowerOf 2 $
                   slength `mydiv` (2 * ilog2 n)
         (enc,dec) = order blength
-        supers =
+    in staticVector_prim n slength blength (enc,dec)
+
+staticVector_gap :: Int -> [Bool] -> StaticVector
+staticVector_gap n =
+    let slength = (ilog2 n)^2
+        -- we want blength to be 2^k-1 to make order encoding perform well
+        blength = roundUpToPowerOf 2 $ slength `mydiv` (2 * ilog2 n)
+        (enc,dec) = (gap_encode,gap_decode) -- order blength
+    in staticVector_prim n slength blength (enc,dec)
+
+staticVector_prim :: Int -> Int -> Int -> (Encoder,Decoder) -> [Bool]
+                  -> StaticVector
+staticVector_prim n slength blength (enc,dec) vals =
+    let supers =
             {-# SCC "supers" #-}
             mapAccumLArray (n`mydiv`slength)
                            (staticVector' blength enc)
@@ -132,4 +145,4 @@ _queryrank s i =
     in  startrank super + blockrank + rank (take biti block)
 
 test = let n = 8*1024*10
-       in staticVector n $ take n (cycle [True,False,False,False])
+       in staticVector_gap n $ take n (cycle [True,False,False,False])
