@@ -1,11 +1,13 @@
 module Encoding (order,gap,pad,gap_encode',gap_encode,gap_decode,Encoder,Decoder)
   where
 
+--import Prelude hiding (length,splitAt,(++),concat,replicate,break,take,repeat,init,all)
+
 import Util
 
 import Test.QuickCheck
 import Test.QuickCheck.Property
-import Data.List
+import Data.List -- .Stream
 import Data.Bits
 import Data.Maybe
 import Debug.Trace

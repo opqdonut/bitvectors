@@ -5,6 +5,8 @@ module Util
 
 import BitVector
 
+import Data.List
+import qualified Data.Map as M
 import Data.Bits
 import Data.MemoCombinators as Memo
 
@@ -72,3 +74,25 @@ binom = Memo.memo2
           binom' n k =
               binom (n-1) k + binom (n-1) (k-1)
 
+occurrences :: Eq a => a -> [a]  -> Int
+occurrences x xs = length $ filter (==x) xs
+
+entropy :: Int -> String -> Double
+entropy 0 xs =
+  sum [ let f_a = occurrences a xs /// n in negate $ f_a * logBase 2 f_a
+      | a <- alphabet]
+    where n = length xs
+          alphabet = nub xs
+          
+entropy k xs =
+  x / fromIntegral n
+    where n = length xs
+          -- all k-substrings of xs
+          subs = take n . map (take k) $ tails xs 
+          chars = map (:[]) . take n . drop k $ xs
+          combine (xs,n) (xs',n') = (xs++xs',n+n')
+          m = M.fromListWith combine $ zip subs (zip chars $ repeat 1)
+          x = sum [ n_xs * entropy 0 xs | (xs,n_xs) <- M.elems m ]
+          
+          
+                           
