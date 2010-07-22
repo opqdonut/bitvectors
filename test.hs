@@ -4,10 +4,15 @@ import Util
 import Static
 import Dynamic
 
+import Prelude hiding (take,cycle,replicate)
+
 import System.Environment (getArgs)
 import Data.Array.Unboxed
 import Random
+import Data.List.Stream
 import Control.Monad
+
+gen n = cycle $ True : replicate (n-1) False
 
 main = do
 
@@ -16,7 +21,7 @@ main = do
   let n = read n'
       k = read k'
 
-  let input = take n (cycle [True,False,False,False,False,False,False])
+  let input = take n $ gen 7
 
   print (s,n,k)
 
@@ -35,10 +40,10 @@ test t n k = do
 
   let go :: Int -> IO ()
       go 0 = return ()
-      go n = {-# SCC "go" #-}
+      go i = {-# SCC "go" #-}
              do x <- {-# SCC "random" #-} randomRIO (0,n-1)
                 {-# SCC "print" #-} print (x,query t x,queryrank t x)
-                go (n-1)
+                go (i-1)
 
   go k
 
