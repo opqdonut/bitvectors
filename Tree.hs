@@ -4,26 +4,9 @@
 module Tree where
 
 import Util
-
-import Data.Monoid
+import Measure
 import Test.QuickCheck
 import Test.QuickCheck.Property
-
-class Monoid a => Measured a v where
-    measure :: v -> a
-
-{-
-instance (Measured a v, Measured b v)
-    => Measured (a,b) v where
-    measure x = (measure x, measure x)
-
-instance (Measured a v, Measured b v, Measured c v)
-    => Measured (a,b,c) v where
-    measure x = (measure x, measure x, measure x)
--}
-
-(+++) :: Monoid a => a -> a -> a
-(+++) = mappend
 
 data Color = Color deriving Show
 
@@ -99,24 +82,6 @@ insert :: Measured a v => v -> (a -> Bool) -> Tree a v -> Tree a v
 insert v = change (\x -> node x (leaf v))
 
 -- -- -- Testing -- -- --
-
-data SizeRank = SizeRank {getSize :: {-# UNPACK #-} !Int,
-                          getRank :: {-# UNPACK #-} !Int}
-    deriving (Show,Eq)
-
-instance Monoid SizeRank where
-    {-# SPECIALIZE instance Monoid SizeRank #-}
-    mappend (SizeRank a a') (SizeRank b b') =
-        SizeRank (a+b) (a'+b')
-    mempty = SizeRank 0 0
-instance Measured SizeRank Bool where
-    measure True  = SizeRank 1 1
-    measure False = SizeRank 1 0
-
-index :: Int->SizeRank->Bool
-index i = (>i).getSize
-rank :: Int->SizeRank->Bool
-rank i = (>i).getRank
 
 build :: Measured a v => [Tree a v] -> Tree a v
 build ts = tree

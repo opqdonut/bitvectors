@@ -21,7 +21,7 @@ main = do
   let n = read n'
       k = read k'
 
-  let input = take n $ gen 7
+  let input = take n $ gen 27
 
   print (s,n,k)
 

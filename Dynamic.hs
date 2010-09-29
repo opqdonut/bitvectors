@@ -7,6 +7,7 @@ import Util
 import Encoding
 import Tree
 import BitVector
+import Measure
 
 import Data.Maybe
 import Debug.Trace
