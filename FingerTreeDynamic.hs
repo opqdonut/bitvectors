@@ -27,14 +27,27 @@ instance Measured SizeRank Block where
 
 newtype FDynamic = FDynamic {unwrap :: (FingerTree SizeRank Block)}
 
+{-
 instance Show FDynamic where
   show f = "(FDynamic XX " ++ show (ftoList f) ++ ")"
+-}
+
+instance BitVector FDynamic where
+  query = _query
+  queryrank = _queryrank
+  select = _select
+  construct = fDynamic
+
 
 build :: Int -> [Bool] -> FDynamic
 build size xs = FDynamic (fromList . map make $ blocks)
   where blocks = cut size xs
         make xs = let encoded = gap_encode xs
                   in Block (listArray' (length encoded) encoded)
+        
+fDynamic :: Int -> [Bool] -> FDynamic
+fDynamic n xs = build blocksize xs
+  where blocksize = 4 * ilog2 n 
         
 fingerTreeToList :: Measured v a => FingerTree v a -> [a]
 fingerTreeToList f

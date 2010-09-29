@@ -3,6 +3,7 @@ module Main where
 import Util
 import Static
 import Dynamic
+import FingerTreeDynamic 
 
 import Prelude hiding (take,cycle,replicate)
 
@@ -27,6 +28,7 @@ main = do
 
   case s of "so" -> test (staticVector_ord n input) n k
             "sg" -> test (staticVector_gap n input) n k
+            "fd" -> test (fDynamic n input) n k
             "d" -> test (dynamicVector n input) n k
 
 
