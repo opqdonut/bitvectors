@@ -1,4 +1,21 @@
-module Encoding (order,gap,pad,gap_encode',gap_encode,gap_decode,Encoder,Decoder)
+module Encoding
+       (order,
+        gap,
+        pad,
+        gap_encode',
+        gap_encode,
+        gap_decode,
+        Encoder,Decoder,
+        
+        prop_unbitify_bitify,
+        prop_bitify_unbitify,
+        prop_bitify_ilog,
+        prop_order_encode_decode,
+        prop_decode_encode,
+        prop_order_1,
+        prop_elias,
+        prop_gap
+        )
   where
 
 --import Prelude hiding (length,splitAt,(++),concat,replicate,break,take,repeat,init,all)
@@ -114,13 +131,16 @@ prop_elias :: Int -> Property
 prop_elias i = i >= 0 ==> elias_decode (elias_encode i) == (i,[])     
 
 gap_encode' :: [Bool] -> [[Bool]]
-gap_encode' xs | all not xs = [elias_encode $ length xs]
-gap_encode' xs = let (gap,True:rest) = break id xs
+gap_encode' xs = let (gap,rest) = break id xs
                      code = elias_encode $ length gap
-                 in code : gap_encode' rest
+                     restEnc = case rest of
+                       [] -> []
+                       (True:rest') -> gap_encode' rest'
+                 in 
+                  code : restEnc
 
 gap_encode :: Encoder
-gap_encode xs = concat $ gap_encode' xs
+gap_encode xs = concat $ gap_encode' xs 
 
 gap_decode :: Decoder
 gap_decode [] = []
