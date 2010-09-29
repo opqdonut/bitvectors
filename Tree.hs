@@ -4,6 +4,7 @@
 module Tree where
 
 import Util
+import BitVector
 import Measure
 import Test.QuickCheck
 import Test.QuickCheck.Property

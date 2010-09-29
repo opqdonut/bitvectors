@@ -1,6 +1,16 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
-module Dynamic (dynamicVector,DynamicVector(),BitVector(..))
+module
+  Dynamic
+  (dynamicVector,
+   DynamicVector(),
+   BitVector(..),
+   prop_construct,
+   prop_ann,
+   prop_query,
+   prop_queryrank,
+   prop_select,
+   )
   where
 
 import Util
@@ -82,17 +92,19 @@ prop_query dv = forAll (chooseindex dv) $
                   \i -> query dv i == dvToList dv !! i
 
 _queryrank :: DynamicVector -> Int -> Int
-_queryrank dv i = r - restrank
+_queryrank dv i = startrank + queryrank bits i'
     where Just ((SizeRank s r),block) = find (index i) (tree dv)
           bits = gap_decode $ elems block
-          len = length bits
-          restrank = rank' $ drop (i-(s-len)) $ bits
+          bitsrank = rank' bits          
+          bitslen = length bits
+          i' = i-(s-bitslen)
+          startrank = r-bitsrank
 
 prop_queryrank :: [Bool] -> Gen Prop
 prop_queryrank xs = not (null xs) ==>
                     forAll (choose (0,length xs-1)) $
                     \i -> queryrank (dynamicVector (length xs) xs) i
-                          == rank' (take i xs)
+                          == queryrank xs i
 
 _select :: DynamicVector -> Int -> Maybe Int
 _select dv i = do 
