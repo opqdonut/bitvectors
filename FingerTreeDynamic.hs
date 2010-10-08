@@ -7,7 +7,8 @@ import Encoding
 import Util
 import BitVector
 
-import Test.QuickCheck
+import Debug.Trace
+import Test.QuickCheck hiding ((><))
 import Test.QuickCheck.Property
 
 import Prelude hiding (reverse,null)
@@ -20,17 +21,23 @@ newtype Block = Block (UArray Int Bool)
 open :: Block -> [Bool]
 open (Block b) = gap_decode $ elems b
 
+close :: [Bool] -> Block
+close xs = let encoded = gap_encode xs
+           in Block (listArray' (length encoded) encoded)
+
 instance Measured SizeRank Block where
     measure b =
       let xs = open b
       in SizeRank (length xs) (rank' xs)
 
-newtype FDynamic = FDynamic {unwrap :: (FingerTree SizeRank Block)}
+data FDynamic = FDynamic 
+                {blocksize :: Int,
+                 unwrap :: (FingerTree SizeRank Block)}
 
-{-
+
 instance Show FDynamic where
-  show f = "(FDynamic XX " ++ show (ftoList f) ++ ")"
--}
+  show f = "(FDynamic " ++ show (blocksize f) ++ " " ++ show (ftoList f) ++ ")"
+
 
 instance BitVector FDynamic where
   query = _query
@@ -39,14 +46,12 @@ instance BitVector FDynamic where
   construct = fDynamic
 
 
-build :: Int -> [Bool] -> FDynamic
-build size xs = FDynamic (fromList . map make $ blocks)
+build :: Int -> [Bool] -> FingerTree SizeRank Block
+build size xs = fromList . map close $ blocks
   where blocks = cut size xs
-        make xs = let encoded = gap_encode xs
-                  in Block (listArray' (length encoded) encoded)
         
 fDynamic :: Int -> [Bool] -> FDynamic
-fDynamic n xs = build blocksize xs
+fDynamic n xs = FDynamic blocksize (build blocksize xs)
   where blocksize = 4 * ilog2 n 
         
 fingerTreeToList :: Measured v a => FingerTree v a -> [a]
@@ -56,15 +61,15 @@ fingerTreeToList f
                 in a : fingerTreeToList as
 
 ftoList :: FDynamic -> [Bool]
-ftoList (FDynamic f) = concatMap open $ fingerTreeToList f
+ftoList (FDynamic _ f) = concatMap open $ fingerTreeToList f
 
-blocks (FDynamic f) = map open $ fingerTreeToList f
+blocks (FDynamic _ f) = map open $ fingerTreeToList f
 
 prop_build size dat = (size>0) ==> out == dat
-  where out = ftoList $ build size dat
-        
+  where out = concatMap open . fingerTreeToList $ build size dat
+
 find :: FDynamic -> (SizeRank->Bool) -> Maybe (SizeRank,Block)
-find (FDynamic f) p =
+find (FDynamic _ f) p =
   let (before,after) = split p f
   in case viewl after of      
     elem :< _ -> Just (measure before, elem)
@@ -105,12 +110,37 @@ prop_select f =
         in _select f i == select dat i
 
 
+_insert :: FDynamic -> Int -> Bool -> FDynamic
+_insert (FDynamic size f) i val =
+  FDynamic size (before >< (close newbits) <| after)
+  where (before', after') = split (index i) f
+        
+        (before, block, after) =
+          case viewl after' of
+            b :< bs -> (before', b, bs)
+            EmptyL ->
+              case viewr before' of
+                bs :> b -> (bs, b, empty)
+                EmptyR -> error "_insert: This shouldn't happen!"
+
+        (SizeRank s _) = measure before
+        i' = i-s
+        bits = open block
+        newbits = insert bits i' val
+
+prop_insert f =
+  forAll (chooseIndex f) $ \i ->
+    forAll (choose (False,True)) $ \val ->
+      val == _query (_insert f i val) i
+
 -- TEST INFRA
         
 instance Arbitrary FDynamic where
   arbitrary = do xs <- listOf1 arbitrary
-                 siz <- choose (1,length xs)
-                 return $ build siz xs
+                 return $ fDynamic (length xs) xs
+  shrink f = do let dat = ftoList f
+                dat' <- shrink dat
+                return $ fDynamic (length dat') dat'
 
 chooseIndex :: FDynamic -> Gen Int
 chooseIndex f = 
