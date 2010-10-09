@@ -4,7 +4,7 @@ import Util
 import Static
 import FingerTreeDynamic 
 
-import Prelude hiding (take,cycle,replicate)
+import Prelude 
 
 import System.Environment (getArgs)
 import Data.Array.Unboxed
