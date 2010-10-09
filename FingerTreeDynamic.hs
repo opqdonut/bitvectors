@@ -113,20 +113,20 @@ prop_select f =
 _insert :: FDynamic -> Int -> Bool -> FDynamic
 _insert (FDynamic size f) i val =
   FDynamic size (before >< (close newbits) <| after)
-  where (before', after') = split (index i) f
-        
-        (before, block, after) =
-          case viewl after' of
-            b :< bs -> (before', b, bs)
-            EmptyL ->
-              case viewr before' of
-                bs :> b -> (bs, b, empty)
-                EmptyR -> error "_insert: This shouldn't happen!"
-
-        (SizeRank s _) = measure before
-        i' = i-s
-        bits = open block
-        newbits = insert bits i' val
+    where (before', after') = split (index i) f
+          
+          (before, block, after) =
+            case viewl after' of
+              b :< bs -> (before', b, bs)
+              EmptyL ->
+                case viewr before' of
+                  bs :> b -> (bs, b, empty)
+                  EmptyR -> error "_insert: This shouldn't happen!"
+          
+          (SizeRank s _) = measure before
+          i' = i-s
+          bits = open block
+          newbits = insert bits i' val
 
 prop_insert f =
   forAll (chooseIndex f) $ \i ->

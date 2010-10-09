@@ -2,7 +2,6 @@ module Main where
 
 import Util
 import Static
-import Dynamic
 import FingerTreeDynamic 
 
 import Prelude hiding (take,cycle,replicate)
@@ -10,7 +9,6 @@ import Prelude hiding (take,cycle,replicate)
 import System.Environment (getArgs)
 import Data.Array.Unboxed
 import Random
-import Data.List.Stream
 import Control.Monad
 
 gen n = cycle $ True : replicate (n-1) False
@@ -29,7 +27,6 @@ main = do
   case s of "so" -> test (staticVector_ord n input) n k
             "sg" -> test (staticVector_gap n input) n k
             "fd" -> test (fDynamic n input) n k
-            "d" -> test (dynamicVector n input) n k
 
 
 test t n k = do
