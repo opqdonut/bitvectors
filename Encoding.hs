@@ -23,7 +23,7 @@ module Encoding
 import Util
 
 import Test.QuickCheck
-import Test.QuickCheck.Property
+--import Test.QuickCheck.Property
 import Data.List -- .Stream
 import Data.Bits
 import Data.Maybe
