@@ -17,8 +17,8 @@ import Data.Array.Unboxed (UArray,(!),bounds,elems)
 
 instance Measured SizeRank Block where
     measure b =
-      let xs = unGapBlock b
-      in measure xs
+      let is = blockGaps b
+      in SizeRank (sum is + length is - 1) (length is - 1)
 
 data FDynamic = FDynamic 
                 {blocksize :: Int,
