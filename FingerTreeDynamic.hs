@@ -3,7 +3,7 @@
 module FingerTreeDynamic where
 
 import Measure
-import Encoding
+import Encoding2
 import Util
 import BitVector
 
@@ -15,20 +15,10 @@ import Prelude hiding (reverse,null)
 import Data.FingerTree
 import Data.Array.Unboxed (UArray,(!),bounds,elems)
 
-newtype Block = Block (UArray Int Bool)
-  deriving Show
-
-open :: Block -> [Bool]
-open (Block b) = gap_decode $ elems b
-
-close :: [Bool] -> Block
-close xs = let encoded = gap_encode xs
-           in Block (listArray' (length encoded) encoded)
-
 instance Measured SizeRank Block where
     measure b =
-      let xs = open b
-      in SizeRank (length xs) (rank' xs)
+      let xs = unGapBlock b
+      in measure xs
 
 data FDynamic = FDynamic 
                 {blocksize :: Int,
@@ -47,7 +37,7 @@ instance BitVector FDynamic where
 
 
 build :: Int -> [Bool] -> FingerTree SizeRank Block
-build size xs = fromList . map close $ blocks
+build size xs = fromList . map gapBlock $ blocks
   where blocks = cut size xs
         
 fDynamic :: Int -> [Bool] -> FDynamic
@@ -61,12 +51,12 @@ fingerTreeToList f
                 in a : fingerTreeToList as
 
 ftoList :: FDynamic -> [Bool]
-ftoList (FDynamic _ f) = concatMap open $ fingerTreeToList f
+ftoList (FDynamic _ f) = concatMap unGapBlock $ fingerTreeToList f
 
-blocks (FDynamic _ f) = map open $ fingerTreeToList f
+blocks (FDynamic _ f) = map unGapBlock $ fingerTreeToList f
 
 prop_build size dat = (size>0) ==> out == dat
-  where out = concatMap open . fingerTreeToList $ build size dat
+  where out = concatMap unGapBlock . fingerTreeToList $ build size dat
 
 find :: FDynamic -> (SizeRank->Bool) -> Maybe (SizeRank,Block)
 find (FDynamic _ f) p =
@@ -80,7 +70,7 @@ _query :: FDynamic -> Int -> Bool
 _query f i = query bits i'
   where Just (SizeRank s r, block) = find f (index i)
         i' = i-s
-        bits = open block
+        bits = unGapBlock block
       
 prop_query f =
   forAll (chooseIndex f) $
@@ -91,7 +81,7 @@ _queryrank :: FDynamic -> Int -> Int
 _queryrank f i = r + queryrank bits i'
   where Just (SizeRank s r, block) = find f (index i)
         i' = i-s
-        bits = open block
+        bits = unGapBlock block
         
 prop_queryrank f =
   forAll (chooseIndex f) $
@@ -101,7 +91,7 @@ prop_queryrank f =
 _select :: FDynamic -> Int -> Maybe Int
 _select f i = do
   (SizeRank s r, block) <- find f (rank i)
-  let bits = open block
+  let bits = unGapBlock block
   fmap (+s) $ select bits (i-r)
   
 prop_select f =
@@ -112,7 +102,7 @@ prop_select f =
 
 _insert :: FDynamic -> Int -> Bool -> FDynamic
 _insert (FDynamic size f) i val =
-  FDynamic size (before >< (close newbits) <| after)
+  FDynamic size (before >< (gapBlock newbits) <| after)
     where (before', after') = split (index i) f
           
           (before, block, after) =
@@ -125,7 +115,7 @@ _insert (FDynamic size f) i val =
           
           (SizeRank s _) = measure before
           i' = i-s
-          bits = open block
+          bits = unGapBlock block
           newbits = insert bits i' val
 
 prop_insert f =

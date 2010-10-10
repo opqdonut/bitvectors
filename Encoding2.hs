@@ -200,6 +200,9 @@ gapDecode (x:xs) =
 unGapBlock :: Block -> [Bool]
 unGapBlock = gapDecode . readEliass
 
+blockGaps :: Block -> [Int]
+blockGaps = readEliass
+
 prop_gap_block xs =
   xs == unGapBlock (gapBlock xs)
 

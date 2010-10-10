@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+
 
 module
   Measure
@@ -9,6 +10,8 @@ module
    rank,
    (+++))     
   where
+
+import BitVector
        
 import Data.Monoid
 import Data.FingerTree (Measured(..))
@@ -25,7 +28,8 @@ instance Monoid SizeRank where
 instance Measured SizeRank Bool where
     measure True  = SizeRank 1 1
     measure False = SizeRank 1 0
-
+instance Measured SizeRank [Bool] where
+  measure xs = SizeRank (length xs) (rank' xs)
 
 
 index :: Int->SizeRank->Bool
