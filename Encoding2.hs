@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes,BangPatterns #-}
 
 module Encoding2 where
 
@@ -52,6 +52,8 @@ instance Arbitrary Code where
   shrink (Code len code) = do l <- shrink len
                               return (Code l code)
 
+{-# SPECIALIZE ones :: Int -> Word8 #-}
+{-# SPECIALIZE ones :: Int -> Word64 #-}
 ones :: Bits a => Int -> a
 ones i = (setBit 0 i) - 1
 
@@ -148,25 +150,58 @@ myLeadingZeros (Code length code) = loop 0 (fromIntegral $ length-1)
                     then acc
                     else loop (acc+1) (i-1)
 
-readElias :: Block -> Int -> (Int,Int)
-readElias b index = case ll of 0 -> (0,index+1)
-                               _ -> (out,index+ll+ll+l-1)
-  where llcode = readCode b index 64
-        ll = myLeadingZeros llcode
-        lcode = readCode b (index+ll) ll
-        l = fromIntegral $ getCode lcode
-        code = readCode b (index+ll+ll) (l-1)
-        finalcode = (Code 1 1) +++ code
-        out = fromIntegral $ getCode finalcode
+readElias :: Block -> Int -> Maybe (Int,Int)
+readElias b index =
+  case ll of
+    0 -> Just (0,index+1)
+    _ -> 
+      case codelength lcode of
+        0 -> Nothing
+        _ -> Just (out,index+ll+ll+l-1)
+    where llcode = readCode b index 64
+          ll = myLeadingZeros llcode
+          lcode = readCode b (index+ll) ll
+          l = fromIntegral $ getCode lcode
+          code = readCode b (index+ll+ll) (l-1)
+          finalcode = (Code 1 1) +++ code
+          out = fromIntegral $ getCode finalcode
         
 prop_read_write_elias = 
   forAll (choose (0,8007199254740992)) $ \i -> 
     let code = elias_encode i
         block = makeBlock [code]
-        (out,len) = readElias block 0
+        Just (out,len) = readElias block 0
     in (i == out && len == fromIntegral (codelength code))
-        
 
+readEliass :: Block -> [Int]        
+readEliass block = loop 0
+  where loop i = case readElias block i
+                 of Just (val,i') -> val:loop i'
+                    Nothing -> []
+                    
+prop_read_eliass =
+  forAll (listOf1 $ choose (0,8007199254740992)) $ \is ->
+    is == (readEliass . makeBlock . map elias_encode) is
+
+gapEncode :: [Bool] -> [Code]
+gapEncode xs = loop xs 0
+  where
+    loop [] !acc         = [elias_encode acc]
+    loop (True:xs) !acc  = elias_encode acc : loop xs 0
+    loop (False:xs) !acc = loop xs (acc+1)
+
+gapBlock :: [Bool] -> Block
+gapBlock = makeBlock . gapEncode
+
+gapDecode :: [Int] -> [Bool]
+gapDecode (x:xs) =
+  replicate x False ++ concatMap (\i -> True:replicate i False) xs
+
+unGapBlock :: Block -> [Bool]
+unGapBlock = gapDecode . readEliass
+
+prop_gap_block xs =
+  xs == unGapBlock (gapBlock xs)
 
 {-
 elias_decode :: Code -> Int
