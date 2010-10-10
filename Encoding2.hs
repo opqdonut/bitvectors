@@ -138,7 +138,6 @@ readCode b@(Block arr) index len = Code (fromIntegral nRead) out +++ next
         
 prop_write_read_code :: Code -> Bool
 prop_write_read_code c =
-  trace (show c) $
   c == readCode (makeBlock [c]) 0 (fromIntegral $ codelength c)
   
 
@@ -150,21 +149,31 @@ myLeadingZeros (Code length code) = loop 0 (fromIntegral $ length-1)
                     then acc
                     else loop (acc+1) (i-1)
 
+myLeadingZeros' :: Block -> Int -> Maybe Int
+myLeadingZeros' (Block b) i = loop i 0
+  where loop !i !acc =
+          let (wordI,bitI') = i `divMod` 8
+              bitI = 7-bitI'
+              word = b!wordI
+          in if (wordI > snd (bounds b))
+             then Nothing
+             else if (word .&. setBit 0 bitI == 0)
+                  then loop (i+1) (acc+1)
+                  else Just acc
+
 readElias :: Block -> Int -> Maybe (Int,Int)
 readElias b index =
-  case ll of
-    0 -> Just (0,index+1)
-    _ -> 
-      case codelength lcode of
-        0 -> Nothing
-        _ -> Just (out,index+ll+ll+l-1)
-    where llcode = readCode b index 64
-          ll = myLeadingZeros llcode
-          lcode = readCode b (index+ll) ll
+  case myLeadingZeros' b index of
+    Nothing -> Nothing
+    Just 0 -> Just (0,index+1)
+    Just ll -> 
+      let lcode = readCode b (index+ll) ll
           l = fromIntegral $ getCode lcode
           code = readCode b (index+ll+ll) (l-1)
           finalcode = (Code 1 1) +++ code
           out = fromIntegral $ getCode finalcode
+      in Just (out,index+ll+ll+l-1)
+        
         
 prop_read_write_elias = 
   forAll (choose (0,8007199254740992)) $ \i -> 
@@ -194,6 +203,7 @@ gapBlock :: [Bool] -> Block
 gapBlock = makeBlock . gapEncode
 
 gapDecode :: [Int] -> [Bool]
+--gapDecode [] = []
 gapDecode (x:xs) =
   replicate x False ++ concatMap (\i -> True:replicate i False) xs
 
