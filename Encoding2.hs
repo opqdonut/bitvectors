@@ -182,12 +182,14 @@ prop_read_write_elias =
         Just (out,len) = readElias block 0
     in (i == out && len == fromIntegral (codelength code))
 
-readEliass :: Block -> [Int]        
-readEliass block = loop 0
+readEliass' :: Block -> Int -> [Int]
+readEliass' block i = loop i
   where loop i = case readElias block i
                  of Just (val,i') -> val:loop i'
                     Nothing -> []
                     
+readEliass block = readEliass' block 0                    
+
 prop_read_eliass =
   forAll (listOf1 $ choose (0,8007199254740992)) $ \is ->
     is == (readEliass . makeBlock . map elias_encode) is
@@ -215,6 +217,7 @@ blockGaps = readEliass
 
 prop_gap_block xs =
   xs == unGapBlock (gapBlock xs)
+
 
 {-
 elias_decode :: Code -> Int

@@ -24,7 +24,7 @@ main = do
 
   print (s,n,k)
 
-  case s of "so" -> test (staticVector_ord n input) n k
+  case s of --"so" -> test (staticVector_ord n input) n k
             "sg" -> test (staticVector_gap n input) n k
             "fd" -> test (fDynamic n input) n k
 
