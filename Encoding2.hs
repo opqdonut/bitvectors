@@ -121,7 +121,6 @@ prop_makeBlock codes = bits `isPrefixOf` bits'
         bits' = blockToBits block
         bits = concatMap codeToBits codes
 
-
 readCode :: Block -> Int -> Int -> Code
 readCode _ _ 0 = Code 0 0
 readCode (Block arr) index _

@@ -54,7 +54,9 @@ mapAccumLArray :: Int -> (acc -> x -> (acc, y)) -> acc -> [x]
 mapAccumLArray n f init xs =
     runSTArray $ do
       arr <- newArray_ (0,n-1)
-      let loop _ _ [] = return ()
+      let loop i _ _
+            | i==n = return ()
+          loop _ _ [] = return ()
           loop i s (x:xs) =
               {-# SCC "loop" #-}
               do let (s',y) = f s x
@@ -63,25 +65,41 @@ mapAccumLArray n f init xs =
       loop 0 init xs
       return arr
             
+unfoldrArray :: Int -> (b -> (b,a)) -> b -> Array Int a
+unfoldrArray n f init =
+  runSTArray $ do
+    arr <- newArray_ (0,n-1)
+    let loop i s
+          | i==n = return ()
+          | otherwise =
+            do let (s',y) = f s
+               y `seq` writeArray arr i y
+               loop (i+1) s'
+    loop 0 init
+    return arr
+
 -- -- -- --
 
-staticVector' :: Int              -- block length
-              -> Encode           -- encoding function
-              -> (Loc,Rank)       -- aggregated location and rank
-              -> [Bool]           -- the bits in this superblock
-              -> ((Loc,Rank),SuperBlock)
-staticVector' blength encode (l,r) vals =
+staticVector' :: Int              -- superblock length
+                 -> Int           -- block length
+                 -> Encode        -- encoding function
+                 -> (Loc,Rank,[Bool]) -- aggregated location and rank, bits
+                 -> ((Loc,Rank,[Bool]),SuperBlock)
+staticVector' slength blength encode (l,r,bits) =
     let newl = l + length vals
         newr = r + rank vals
+        (vals,rest) = splitAt slength bits
         nb = length vals `mydiv` blength
 
-        ranks = partialsums . map rank $ cut blength vals
+        chopped = cut blength vals
+
+        ranks = partialsums . map rank $ chopped
         locs = partialsums . map (sum.map (fromIntegral.codelength).encode)
-               $ cut blength vals
+               $ chopped
     in --trace ("ratio "++show (length vals,last locs))
-      ((newl,newr),
+      ((newl,newr,rest),
         SuperBlock 
-          ({-# SCC "bits" #-} makeBlock (concatMap encode $ cut blength vals))
+          ({-# SCC "bits" #-} makeBlock (concatMap encode chopped))
           l r
           ({-# SCC "locs" #-} listArray' (nb+1) locs)
           ({-# SCC "ranks" #-} listArray' (nb+1) ranks))
@@ -113,10 +131,9 @@ staticVector_prim :: Int -> Int -> Int
 staticVector_prim n slength blength (enc,dec) vals =
     let supers =
             {-# SCC "supers" #-}
-            mapAccumLArray (n`mydiv`slength)
-                           (staticVector' blength enc)
-                           (0,0)
-                           (cut slength vals)
+            unfoldrArray (n`mydiv`slength)
+                         (staticVector' slength blength enc)
+                         (0,0,vals)
 
     in StaticVector enc dec blength slength supers
        
