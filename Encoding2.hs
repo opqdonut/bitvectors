@@ -5,7 +5,7 @@ module Encoding2 where
 import Data.List (isPrefixOf)
 import Numeric (showHex)
 import Data.Bits
---import Data.Bits.Extras
+import Data.Bits.Extras
 import Data.Word
 import Control.Monad.ST
 import Data.Array.Unboxed
@@ -71,6 +71,10 @@ elias_encode i
         
 newtype Block = Block (UArray Int Word8)
 
+instance Arbitrary Block where
+  arbitrary = do xs <- listOf1 arbitrary
+                 return . Block $ listArray' (length xs) xs
+
 instance Show Block where
   show (Block a) = "Block " ++ concatMap s (elems a)
     where 
@@ -80,6 +84,12 @@ instance Show Block where
 blockToBits :: Block -> [Bool]
 blockToBits (Block arr) = concatMap f (elems arr)
   where f w = map (testBit w) [7,6..0]
+
+bitLength :: Block -> Int
+bitLength (Block arr) = 8 * (snd (bounds arr) + 1)
+
+prop_bitLength :: Block -> Bool
+prop_bitLength b = length (blockToBits b) == bitLength b
 
 writeCode :: (forall s. STUArray s Int Word8 -> Int -> Code -> ST s Int)
 writeCode arr index (Code 0 _) = return index
@@ -121,6 +131,20 @@ prop_makeBlock codes = bits `isPrefixOf` bits'
         bits' = blockToBits block
         bits = concatMap codeToBits codes
 
+putInto :: Word64 -> Word8 -> Int -> Word64
+putInto into word len = output
+  where shifted = shiftL (fromIntegral word) (len-8)
+        output = into .|. shifted
+                 
+prop_putInto = 
+  forAll (choose (0,63)) $ \i ->
+    putInto 0 1 (i+8) == shiftL 1 i
+
+readInto :: Block -> Int -> Int -> Word64 -> Word64
+readInto (Block arr) wordI len into = putInto into word len
+  where word = arr!wordI
+
+{-
 readCode :: Block -> Int -> Int -> Code
 readCode _ _ 0 = Code 0 0
 readCode (Block arr) index _
@@ -134,32 +158,78 @@ readCode b@(Block arr) index len = Code (fromIntegral nRead) out +++ next
         read = word .&. mask
         out = fromIntegral $ shiftR read end
         next = readCode b (index+nRead) (len-nRead)
-        
+-}
+
+readCode :: Block -> Int -> Int -> Code
+readCode b index len 
+  | realLen == 0 = Code 0 0
+  | otherwise    = Code (fromIntegral realLen) code
+  where realLen = min len (bitLength b - index)
+        (wordIndex,bitIndex) = index `divMod` 8
+        start = readInto b wordIndex (realLen+bitIndex) 0
+        nRead = min len (8-bitIndex)
+        len' = realLen-nRead
+        wordIndex' = wordIndex + 1
+        code = loop start wordIndex' len'
+        loop w _ 0 = w
+        loop w wi len = let len' = max 0 (len-8)
+                        in loop (readInto b wi len w) (wi+1) len'
+       
+prop_readCode block =
+  forAll (choose (0,bitLength block-1)) $ \i ->
+    forAll (choose (0,64)) $ \len ->
+      codeToBits (readCode block i len) 
+      == (take len . drop i $ blockToBits block)
+
 prop_write_read_code :: Code -> Bool
 prop_write_read_code c =
   c == readCode (makeBlock [c]) 0 (fromIntegral $ codelength c)
   
+myLeadingZeros :: Code -> Word32
+myLeadingZeros c
+  -- "bug": leadingZeros 0 === leadingZeros 1
+  | getCode c == 0 = fromIntegral $ codelength c
+  | otherwise = leadingZeros (getCode c)
+       - (64 - fromIntegral (codelength c))
+       
+prop_myLeadingZeros :: Code -> Bool
+prop_myLeadingZeros code = a == b
+  where a = fromIntegral . length . takeWhile not . codeToBits $ code
+        b = myLeadingZeros code
 
-myLeadingZeros :: Code -> Int
-myLeadingZeros (Code length code) = loop 0 (fromIntegral $ length-1)
-  where 
-    loop acc (-1) = acc
-    loop acc i    = if testBit code i
-                    then acc
-                    else loop (acc+1) (i-1)
-
+{-
 myLeadingZeros' :: Block -> Int -> Maybe Int
 myLeadingZeros' (Block b) i = loop i 0
   where loop !i !acc =
           let (wordI,bitI') = i `divMod` 8
               bitI = 7-bitI'
               word = b!wordI
+              zeros = leadingZeros word - (8 - bitI')
           in if (wordI > snd (bounds b))
              then Nothing
-             else if (word .&. setBit 0 bitI == 0)
+             else 
                   then loop (i+1) (acc+1)
                   else Just acc
+-}
 
+myLeadingZeros' :: Block -> Int -> Maybe Int
+myLeadingZeros' b i = if (getCode code) == 0
+                      then Nothing
+                      else Just zeros
+  where code = readCode b i 64
+        nRead = fromIntegral $ codelength code
+        zeros = fromIntegral $ myLeadingZeros code
+        
+myLeadingZeros'' :: [Bool] -> Int -> Maybe Int
+myLeadingZeros'' bs i =
+  case break id (drop i bs)
+  of (_,[]) -> Nothing
+     (a,b)  -> Just (length a)
+        
+prop_myLeadingZeros' block =
+  forAll (choose (0,bitLength block-1)) $ \i ->
+    myLeadingZeros' block i == myLeadingZeros'' (blockToBits block) i
+        
 readElias :: Block -> Int -> Maybe (Int,Int)
 readElias b index =
   case myLeadingZeros' b index of
