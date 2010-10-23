@@ -169,65 +169,31 @@ prop_write_read_code :: Code -> Bool
 prop_write_read_code c =
   c == readCode (makeBlock [c]) 0 (fromIntegral $ codelength c)
   
-myLeadingZeros :: Code -> Int
-myLeadingZeros c = fixedLeadingZeros (getCode c)
-                   - (64 - fromIntegral (codelength c))
-       
-prop_myLeadingZeros :: Code -> Bool
-prop_myLeadingZeros code = a == b
-  where a = fromIntegral . length . takeWhile not . codeToBits $ code
-        b = myLeadingZeros code
+myLeadingZeros :: Code -> Maybe Int
+myLeadingZeros c = if getCode c == 0
+                   then Nothing
+                   else Just (fixedLeadingZeros (getCode c)
+                              - (64 - fromIntegral (codelength c)))
 
 -- "bug": leadingZeros 0 === leadingZeros 1 === bitlength - 1
 fixedLeadingZeros :: ExtraBits a => a -> Int
 fixedLeadingZeros w@0 = bitSize w
 fixedLeadingZeros w = fromIntegral $ leadingZeros w
 
-myLeadingZeros' :: Block -> Int -> Maybe Int
-myLeadingZeros' b i
-  | i >= bitLength b = Nothing
-myLeadingZeros' (Block arr) i =  zeros
-  where 
-    (wordI,bitI') = i `divMod` 8
-    bitI = 8-bitI'
-    word = arr!wordI
-    start = word .&. ones bitI
-    lzeros = (fixedLeadingZeros start) - bitI'
-    firstzeros = lzeros
-    zeros = if start == 0 
-            then loop firstzeros (wordI+1)
-            else Just firstzeros
-    maxWi = snd (bounds arr)
-    loop acc wi 
-      | wi > maxWi = Nothing
-      | otherwise  = case fixedLeadingZeros (arr!wi)
-                     of 8 -> loop (acc + 8) (wi + 1)
-                        i -> Just (acc + fromIntegral i)
-        
-myLeadingZeros'' :: [Bool] -> Int -> Maybe Int
-myLeadingZeros'' bs i =
-  case break id (drop i bs)
-  of (_,[]) -> Nothing
-     (a,b)  -> Just (length a)
-        
-prop_myLeadingZeros' block =
-  forAll (choose (0,bitLength block-1)) $ \i ->
-    myLeadingZeros' block i == myLeadingZeros'' (blockToBits block) i
-        
 readElias :: Block -> Int -> Maybe (Int,Int)
 readElias b index =
-  case myLeadingZeros' b index of
-    Nothing -> Nothing
-    Just 0 -> Just (0,index+1)
-    Just ll -> 
-      let lcode = readCode b (index+ll) ll
-          l = fromIntegral $ getCode lcode
-          code = readCode b (index+ll+ll) (l-1)
-          finalcode = (Code 1 1) +++ code
-          out = fromIntegral $ getCode finalcode
-      in Just (out,index+ll+ll+l-1)
-        
-        
+  let code = (readCode b index 64)
+      len = fromIntegral $ codelength code
+  in case myLeadingZeros code
+     of Nothing -> Nothing
+        Just 0 -> Just (0,index+1)
+        Just ll ->
+          let l = fromIntegral $ shiftR (getCode code) (len-2*ll)
+              almost = ones (l-1) .&. shiftR (getCode code) (len-(2*ll+l-1))
+              final = setBit almost (l-1)
+          in Just (fromIntegral final, index+2*ll+l-1)
+    
+    
 prop_read_write_elias = 
   forAll (choose (0,8007199254740992)) $ \i -> 
     let code = elias_encode i
