@@ -144,22 +144,6 @@ readInto :: Block -> Int -> Int -> Word64 -> Word64
 readInto (Block arr) wordI len into = putInto into word len
   where word = arr!wordI
 
-{-
-readCode :: Block -> Int -> Int -> Code
-readCode _ _ 0 = Code 0 0
-readCode (Block arr) index _
-  | index`div`8 > snd (bounds arr) = Code 0 0
-readCode b@(Block arr) index len = Code (fromIntegral nRead) out +++ next
-  where (wordIndex,bitIndex) = index `divMod` 8
-        word = arr ! wordIndex
-        nRead = min len (8-bitIndex)
-        end = (8-bitIndex-nRead)
-        mask = shiftL (ones nRead) end
-        read = word .&. mask
-        out = fromIntegral $ shiftR read end
-        next = readCode b (index+nRead) (len-nRead)
--}
-
 readCode :: Block -> Int -> Int -> Code
 readCode b index len 
   | realLen == 0 = Code 0 0
@@ -171,9 +155,9 @@ readCode b index len
         len' = realLen-nRead
         wordIndex' = wordIndex + 1
         code = loop start wordIndex' len'
-        loop w _ 0 = w
-        loop w wi len = let len' = max 0 (len-8)
-                        in loop (readInto b wi len w) (wi+1) len'
+        loop !w _ 0 = w
+        loop !w !wi !len = let len' = max 0 (len-8)
+                           in loop (readInto b wi len w) (wi+1) len'
        
 prop_readCode block =
   forAll (choose (0,bitLength block-1)) $ \i ->
@@ -212,13 +196,30 @@ myLeadingZeros' (Block b) i = loop i 0
                   else Just acc
 -}
 
+fixedLeadingZeros :: Word8 -> Int
+fixedLeadingZeros 0 = 8
+fixedLeadingZeros w = fromIntegral $ leadingZeros w
+
 myLeadingZeros' :: Block -> Int -> Maybe Int
-myLeadingZeros' b i = if (getCode code) == 0
-                      then Nothing
-                      else Just zeros
-  where code = readCode b i 64
-        nRead = fromIntegral $ codelength code
-        zeros = fromIntegral $ myLeadingZeros code
+myLeadingZeros' b i
+  | i >= bitLength b = Nothing
+myLeadingZeros' (Block arr) i =  zeros
+  where 
+    (wordI,bitI') = i `divMod` 8
+    bitI = 8-bitI'
+    word = arr!wordI
+    start = word .&. ones bitI
+    lzeros = (fixedLeadingZeros start) - bitI'
+    firstzeros = lzeros
+    zeros = if start == 0 
+            then loop firstzeros (wordI+1)
+            else Just firstzeros
+    maxWi = snd (bounds arr)
+    loop acc wi 
+      | wi > maxWi = Nothing
+      | otherwise  = case fixedLeadingZeros (arr!wi)
+                     of 8 -> loop (acc + 8) (wi + 1)
+                        i -> Just (acc + fromIntegral i)
         
 myLeadingZeros'' :: [Bool] -> Int -> Maybe Int
 myLeadingZeros'' bs i =
