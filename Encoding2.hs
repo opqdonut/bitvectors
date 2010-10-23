@@ -169,35 +169,18 @@ prop_write_read_code :: Code -> Bool
 prop_write_read_code c =
   c == readCode (makeBlock [c]) 0 (fromIntegral $ codelength c)
   
-myLeadingZeros :: Code -> Word32
-myLeadingZeros c
-  -- "bug": leadingZeros 0 === leadingZeros 1
-  | getCode c == 0 = fromIntegral $ codelength c
-  | otherwise = leadingZeros (getCode c)
-       - (64 - fromIntegral (codelength c))
+myLeadingZeros :: Code -> Int
+myLeadingZeros c = fixedLeadingZeros (getCode c)
+                   - (64 - fromIntegral (codelength c))
        
 prop_myLeadingZeros :: Code -> Bool
 prop_myLeadingZeros code = a == b
   where a = fromIntegral . length . takeWhile not . codeToBits $ code
         b = myLeadingZeros code
 
-{-
-myLeadingZeros' :: Block -> Int -> Maybe Int
-myLeadingZeros' (Block b) i = loop i 0
-  where loop !i !acc =
-          let (wordI,bitI') = i `divMod` 8
-              bitI = 7-bitI'
-              word = b!wordI
-              zeros = leadingZeros word - (8 - bitI')
-          in if (wordI > snd (bounds b))
-             then Nothing
-             else 
-                  then loop (i+1) (acc+1)
-                  else Just acc
--}
-
-fixedLeadingZeros :: Word8 -> Int
-fixedLeadingZeros 0 = 8
+-- "bug": leadingZeros 0 === leadingZeros 1 === bitlength - 1
+fixedLeadingZeros :: ExtraBits a => a -> Int
+fixedLeadingZeros w@0 = bitSize w
 fixedLeadingZeros w = fromIntegral $ leadingZeros w
 
 myLeadingZeros' :: Block -> Int -> Maybe Int
