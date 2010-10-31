@@ -7,6 +7,8 @@ import Encoding2
 import Util
 import BitVector
 
+import Data.List (unfoldr)
+
 import Debug.Trace
 import Test.QuickCheck hiding ((><))
 import Test.QuickCheck.Property
@@ -37,8 +39,11 @@ instance BitVector FDynamic where
 
 
 build :: Int -> [Bool] -> FingerTree SizeRank Block
-build size xs = fromList . map gapBlock $ blocks
-  where blocks = cut size xs
+build size xs = fromList $ unfoldr go xs
+  where go [] = Nothing
+        go xs = let block = gapBlock $ take size xs
+                in block `seq` Just (block, drop size xs)
+
         
 fDynamic :: Int -> [Bool] -> FDynamic
 fDynamic n xs = FDynamic blocksize (build blocksize xs)
