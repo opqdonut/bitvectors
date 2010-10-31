@@ -2,7 +2,7 @@
 
 module Encoding2 where
 
-import Data.List (isPrefixOf)
+import Data.List (isPrefixOf,unfoldr)
 import Numeric (showHex)
 import Data.Bits
 import Data.Bits.Extras
@@ -202,10 +202,7 @@ prop_read_write_elias =
     in (i == out && len == fromIntegral (codelength code))
 
 readEliass' :: Block -> Int -> [Int]
-readEliass' block i = loop i
-  where loop i = case readElias block i
-                 of Just (val,i') -> val:loop i'
-                    Nothing -> []
+readEliass' block i = unfoldr (readElias block) i
                     
 readEliass block = readEliass' block 0                    
 

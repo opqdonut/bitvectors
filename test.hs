@@ -46,12 +46,13 @@ test t n k = do
   --let bits = sum $ map (last . elems . blocklocations) $ elems $ supers test
   --putStrLn $ "bits: " ++ show bits ++ " (" ++ show (bits///n) ++ ")"
 
-  let go :: Int -> IO ()
-      go 0 = return ()
-      go i = {-# SCC "go" #-}
-             do x <- {-# SCC "random" #-} randomRIO (0,n-1)
-                {-# SCC "print" #-} print (x,query t x,queryrank t x)
-                go (i-1)
+  let go :: Int -> Int -> IO ()
+      go x 0 = return ()
+      go x i = {-# SCC "go" #-}
+             do {-# SCC "print" #-} do print x
+                                       print $ query t x
+                                       print $ queryrank t x
+                go (x*17`mod`n) (i-1)
 
-  go k
+  go 1 k
 

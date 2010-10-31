@@ -42,7 +42,7 @@ build size xs = fromList . map gapBlock $ blocks
         
 fDynamic :: Int -> [Bool] -> FDynamic
 fDynamic n xs = FDynamic blocksize (build blocksize xs)
-  where blocksize = 4 * ilog2 n 
+  where blocksize = roundUpToPowerOf 2 $ 2 * ilog2 n 
         
 fingerTreeToList :: Measured v a => FingerTree v a -> [a]
 fingerTreeToList f
