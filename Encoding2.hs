@@ -274,7 +274,12 @@ prop_readNibbles =
   forAll (listOf1 $ choose (0,2^30)) $ \is ->
   is == (readNibbles . makeBlock . (++[nibbleTerminator]) . map nibbleEncode) is
 
+gapNibble = gapEncode_ nibbleEncode nibbleTerminator
+nibbleBlock = makeBlock . gapNibble
+unNibbleBlock = gapDecode . readNibbles
 
+prop_nibble_block xs =
+  xs == unNibbleBlock (nibbleBlock xs)
 
 
 {-
