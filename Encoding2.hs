@@ -210,12 +210,14 @@ prop_read_eliass =
   forAll (listOf1 $ choose (0,8007199254740992)) $ \is ->
     is == (readEliass . makeBlock . map elias_encode) is
 
-gapEncode :: [Bool] -> [Code]
-gapEncode xs = loop xs 0
+gapEncode_ :: (Int->Code) -> Code -> [Bool] -> [Code]
+gapEncode_ enc terminator xs = loop xs 0
   where
-    loop [] !acc         = [elias_encode acc]
-    loop (True:xs) !acc  = elias_encode acc : loop xs 0
+    loop [] !acc         = [enc acc, terminator]
+    loop (True:xs) !acc  = enc acc : loop xs 0
     loop (False:xs) !acc = loop xs (acc+1)
+    
+gapEncode = gapEncode_ elias_encode (Code 0 0)
 
 gapBlock :: [Bool] -> Block
 gapBlock = makeBlock . gapEncode
@@ -233,6 +235,46 @@ blockGaps = readEliass
 
 prop_gap_block xs =
   xs == unGapBlock (gapBlock xs)
+
+
+----
+
+nibbleTerminator = Code 4 8
+
+nibbleEncode :: Int -> Code
+nibbleEncode i
+  | i<2^3 = Code 4 (fromIntegral i)
+  | otherwise = go base (shiftR (fromIntegral i) 3)
+    where base = Code 4 (fromIntegral i .&. ones 3)
+          snip i = Code 4 (setBit 0 3 .|. i .&. ones 3)
+          go acc 0 = acc 
+          go acc i = go (snip i +++ acc) (shiftR i 3)
+
+readNibble :: Block -> Int -> Maybe (Int,Int)
+readNibble b i = if readCode b i 4 == nibbleTerminator
+                 then Nothing
+                 else loop 0 i
+  where loop acc i =
+          let c = readCode b i 4
+              value = getCode c .&. ones 3
+              acc' = shiftL acc 3 .|. value
+          in case testBit (getCode c) 3 of
+            False -> Just (fromIntegral $ acc',i+4)
+            True -> loop acc' (i+4)
+            
+prop_nibble = 
+  forAll (choose (0,2^30)) $ \i ->
+    let Just (j,_) = readNibble (makeBlock [nibbleEncode i]) 0
+    in j == i
+       
+readNibbles :: Block -> [Int]
+readNibbles block = unfoldr (readNibble block) 0
+
+prop_readNibbles =
+  forAll (listOf1 $ choose (0,2^30)) $ \is ->
+  is == (readNibbles . makeBlock . (++[nibbleTerminator]) . map nibbleEncode) is
+
+
 
 
 {-
