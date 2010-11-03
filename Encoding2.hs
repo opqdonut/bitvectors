@@ -256,8 +256,9 @@ nibbleTerminatorCode :: Code
 nibbleTerminatorCode = Code 4 8
 
 nibble :: Block -> Int -> Int
-nibble (Block a) i = let (wi,bi) = i `divMod` 8 
-                         w = fromIntegral $ a!wi
+nibble (Block a) i = fromIntegral $
+                     let (wi,bi) = i `divMod` 8 
+                         w = a!wi
                      in case bi of
                        0 -> w `shiftR` 4
                        4 -> w .&. ones 4
@@ -266,12 +267,12 @@ readNibble :: Block -> Int -> Maybe (Int,Int)
 readNibble b i = if nibble b i == 8
                  then Nothing
                  else loop 0 i
-  where loop acc i =
+  where loop !acc !i =
           let n = nibble b i
               value = n .&. ones 3
               acc' = (acc `shiftL` 3) .|. value
           in case testBit n 3 of
-            False -> Just (fromIntegral acc',i+4)
+            False -> Just (acc',i+4)
             True -> loop acc' (i+4)
             
 prop_nibble = 
