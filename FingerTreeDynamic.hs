@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses,FlexibleInstances,FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses,FlexibleInstances,FlexibleContexts,ExistentialQuantification #-}
 
 module FingerTreeDynamic where
 
@@ -19,24 +19,32 @@ import Data.Array.Unboxed (UArray,(!),bounds,elems)
 
 instance Measured SizeRank (EBlock EG) where
     measure b =
-      let bs = decode b
-      in SizeRank (length bs) (length $ filter id bs)
+      let is = blockGaps $ unEBlock b
+      in SizeRank (sum is + length is - 1) (length is - 1)
 
 instance Measured SizeRank (EBlock NG) where
     measure b =
-      let bs = decode b
-      in SizeRank (length bs) (length $ filter id bs)
+      let is = readNibbles $ unEBlock b
+      in SizeRank (sum is + length is - 1) (length is - 1)
 
-data FDynamic = FDynamic 
-                {blocksize :: Int,
-                 unwrap :: (FingerTree SizeRank (EBlock EG))}
+data FDynamic a = 
+  (Measured SizeRank a, Encoded a) =>
+  FDynamic 
+  {blocksize :: Int,
+   unwrap :: (FingerTree SizeRank a)}
 
 
-instance Show FDynamic where
+instance Show (FDynamic a) where
   show f = "(FDynamic " ++ show (blocksize f) ++ " " ++ show (ftoList f) ++ ")"
 
 
-instance BitVector FDynamic where
+instance BitVector (FDynamic (EBlock EG)) where
+  query = _query
+  queryrank = _queryrank
+  select = _select
+  construct = fDynamic
+
+instance BitVector (FDynamic (EBlock NG)) where
   query = _query
   queryrank = _queryrank
   select = _select
@@ -51,9 +59,10 @@ build size xs = fromList $ unfoldr go xs
                 in block `seq` Just (block, drop size xs)
 
         
-fDynamic :: Int -> [Bool] -> FDynamic
+fDynamic :: (Encoded a, Measured SizeRank a) =>
+            Int -> [Bool] -> FDynamic a
 fDynamic n xs = FDynamic blocksize (build blocksize xs)
-  where blocksize = roundUpToPowerOf 2 $ 2 * ilog2 n 
+  where blocksize = roundUpToPowerOf 2 $ 2 * ilog2 n
         
 fingerTreeToList :: Measured v a => FingerTree v a -> [a]
 fingerTreeToList f
@@ -61,7 +70,7 @@ fingerTreeToList f
   | otherwise = let (a:<as) = viewl f
                 in a : fingerTreeToList as
 
-ftoList :: FDynamic -> [Bool]
+ftoList :: FDynamic a -> [Bool]
 ftoList (FDynamic _ f) = concatMap decode $ fingerTreeToList f
 
 blocks (FDynamic _ f) = map decode $ fingerTreeToList f
@@ -69,7 +78,7 @@ blocks (FDynamic _ f) = map decode $ fingerTreeToList f
 prop_build size dat = (size>0) ==> out == dat
   where out = concatMap decode . fingerTreeToList $ (build size dat :: FingerTree SizeRank (EBlock EG))
 
-find :: FDynamic -> (SizeRank->Bool) -> Maybe (SizeRank,EBlock EG)
+find :: FDynamic a -> (SizeRank->Bool) -> Maybe (SizeRank,a)
 find (FDynamic _ f) p =
   let (before,after) = split p f
   in case viewl after of      
@@ -77,41 +86,53 @@ find (FDynamic _ f) p =
     EmptyL    -> Nothing
      
 
-_query :: FDynamic -> Int -> Bool
+_query :: Encoded a => FDynamic a -> Int -> Bool
 _query f i = query bits i'
   where Just (SizeRank s r, block) = find f (index i)
         i' = i-s
         bits = decode block
       
-prop_query f =
+proto_query f =
   forAll (chooseIndex f) $
   \i -> let dat = ftoList f
         in _query f i == query dat i
+prop_query :: FDynamic (EBlock EG) -> Property
+prop_query = proto_query
+prop_query_n :: FDynamic (EBlock NG) -> Property
+prop_query_n = proto_query
            
-_queryrank :: FDynamic -> Int -> Int
+           
+_queryrank :: Encoded a => FDynamic a -> Int -> Int
 _queryrank f i = r + queryrank bits i'
   where Just (SizeRank s r, block) = find f (index i)
         i' = i-s
         bits = decode block
         
-prop_queryrank f =
+proto_queryrank f =
   forAll (chooseIndex f) $
   \i -> let dat = ftoList f
         in _queryrank f i == queryrank dat i
-  
-_select :: FDynamic -> Int -> Maybe Int
+prop_queryrank :: FDynamic (EBlock EG) -> Property
+prop_queryrank = proto_queryrank
+prop_queryrank_n :: FDynamic (EBlock NG) -> Property
+prop_queryrank_n = proto_queryrank
+                  
+_select :: Encoded a => FDynamic a -> Int -> Maybe Int
 _select f i = do
   (SizeRank s r, block) <- find f (rank i)
   let bits = decode block
   fmap (+s) $ select bits (i-r)
   
-prop_select f =
+proto_select f =
   forAll (chooseIndex f) $
   \i -> let dat = ftoList f
         in _select f i == select dat i
+prop_select :: FDynamic (EBlock EG) -> Property
+prop_select = proto_select
+prop_select_n :: FDynamic (EBlock NG) -> Property
+prop_select_n = proto_select
 
-
-_insert :: FDynamic -> Int -> Bool -> FDynamic
+_insert :: (Measured SizeRank a, Encoded a) => FDynamic a -> Int -> Bool -> FDynamic a
 _insert (FDynamic size f) i val =
   FDynamic size (before >< (encode newbits) <| after)
     where (before', after') = split (index i) f
@@ -129,26 +150,38 @@ _insert (FDynamic size f) i val =
           bits = decode block
           newbits = insert bits i' val
 
-prop_insert f =
+proto_insert f =
   forAll (chooseIndex f) $ \i ->
     forAll (choose (False,True)) $ \val ->
       val == _query (_insert f i val) i
+prop_insert :: FDynamic (EBlock EG) -> Property
+prop_insert = proto_insert
+prop_insert_n :: FDynamic (EBlock NG) -> Property
+prop_insert_n = proto_insert
 
 -- TEST INFRA
         
-instance Arbitrary FDynamic where
-  arbitrary = do xs <- listOf1 arbitrary
-                 return $ fDynamic (length xs) xs
-  shrink f = do let dat = ftoList f
-                dat' <- shrink dat
-                return $ fDynamic (length dat') dat'
+arbitrary_impl :: (Encoded a, Measured SizeRank a) => Gen (FDynamic a)
+arbitrary_impl = do xs <- listOf1 arbitrary
+                    return $ fDynamic (length xs) xs
+shrink_impl f = do let dat = ftoList f
+                   dat' <- shrink dat
+                   return $ fDynamic (length dat') dat'               
+                
+instance Arbitrary (FDynamic (EBlock EG)) where
+  arbitrary = arbitrary_impl
+  shrink = shrink_impl
 
-chooseIndex :: FDynamic -> Gen Int
+instance Arbitrary (FDynamic (EBlock NG)) where
+  arbitrary = arbitrary_impl
+  shrink = shrink_impl
+
+chooseIndex :: Measured SizeRank a => FDynamic a -> Gen Int
 chooseIndex f = 
   let (SizeRank s _) = measure (unwrap f)
   in choose (0,s-1)
      
-chooseRank :: FDynamic -> Gen Int
+chooseRank :: Measured SizeRank a => FDynamic a -> Gen Int
 chooseRank f = 
   let (SizeRank _ r) = measure (unwrap f)
   in choose (0,r-1)
