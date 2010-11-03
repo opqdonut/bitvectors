@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes,BangPatterns #-}
+{-# LANGUAGE RankNTypes,BangPatterns,FlexibleInstances #-}
 
 module Encoding2 where
 
@@ -287,3 +287,25 @@ elias_decode :: Code -> Int
 elias_decode (Code length code) = if ll == 0 then 0 else i
   where ll = leadingZeros code - (64-length)
   -}
+
+-----
+
+newtype EBlock a = EBlock {unEBlock :: Block}
+
+class Encoded a where
+  decode :: a -> [Bool]
+  encode :: [Bool] -> a
+
+data EG = EG
+
+instance Encoded (EBlock EG) where
+  decode = unGapBlock . unEBlock
+  encode = EBlock . gapBlock
+  
+data NG = NG
+
+instance Encoded (EBlock NG) where
+  decode = unNibbleBlock . unEBlock
+  encode = EBlock . nibbleBlock
+  
+

@@ -4,7 +4,7 @@ module Static (staticVector_gap,StaticVector(),BitVector(..),
                blength,slength,blocklocations,supers)
   where
 
-import Encoding2
+import Encoding2 hiding (Encoded,encode,decode)
 import Util
 import BitVector
 

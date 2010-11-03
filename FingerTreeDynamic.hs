@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses,FlexibleInstances,FlexibleContexts #-}
 
 module FingerTreeDynamic where
 
@@ -17,14 +17,19 @@ import Prelude hiding (reverse,null)
 import Data.FingerTree
 import Data.Array.Unboxed (UArray,(!),bounds,elems)
 
-instance Measured SizeRank Block where
+instance Measured SizeRank (EBlock EG) where
     measure b =
-      let is = blockGaps b
-      in SizeRank (sum is + length is - 1) (length is - 1)
+      let bs = decode b
+      in SizeRank (length bs) (length $ filter id bs)
+
+instance Measured SizeRank (EBlock NG) where
+    measure b =
+      let bs = decode b
+      in SizeRank (length bs) (length $ filter id bs)
 
 data FDynamic = FDynamic 
                 {blocksize :: Int,
-                 unwrap :: (FingerTree SizeRank Block)}
+                 unwrap :: (FingerTree SizeRank (EBlock EG))}
 
 
 instance Show FDynamic where
@@ -38,10 +43,11 @@ instance BitVector FDynamic where
   construct = fDynamic
 
 
-build :: Int -> [Bool] -> FingerTree SizeRank Block
+build :: (Encoded a, Measured SizeRank a) =>
+         Int -> [Bool] -> FingerTree SizeRank a
 build size xs = fromList $ unfoldr go xs
   where go [] = Nothing
-        go xs = let block = gapBlock $ take size xs
+        go xs = let block = encode $ take size xs
                 in block `seq` Just (block, drop size xs)
 
         
@@ -56,14 +62,14 @@ fingerTreeToList f
                 in a : fingerTreeToList as
 
 ftoList :: FDynamic -> [Bool]
-ftoList (FDynamic _ f) = concatMap unGapBlock $ fingerTreeToList f
+ftoList (FDynamic _ f) = concatMap decode $ fingerTreeToList f
 
-blocks (FDynamic _ f) = map unGapBlock $ fingerTreeToList f
+blocks (FDynamic _ f) = map decode $ fingerTreeToList f
 
 prop_build size dat = (size>0) ==> out == dat
-  where out = concatMap unGapBlock . fingerTreeToList $ build size dat
+  where out = concatMap decode . fingerTreeToList $ (build size dat :: FingerTree SizeRank (EBlock EG))
 
-find :: FDynamic -> (SizeRank->Bool) -> Maybe (SizeRank,Block)
+find :: FDynamic -> (SizeRank->Bool) -> Maybe (SizeRank,EBlock EG)
 find (FDynamic _ f) p =
   let (before,after) = split p f
   in case viewl after of      
@@ -75,7 +81,7 @@ _query :: FDynamic -> Int -> Bool
 _query f i = query bits i'
   where Just (SizeRank s r, block) = find f (index i)
         i' = i-s
-        bits = unGapBlock block
+        bits = decode block
       
 prop_query f =
   forAll (chooseIndex f) $
@@ -86,7 +92,7 @@ _queryrank :: FDynamic -> Int -> Int
 _queryrank f i = r + queryrank bits i'
   where Just (SizeRank s r, block) = find f (index i)
         i' = i-s
-        bits = unGapBlock block
+        bits = decode block
         
 prop_queryrank f =
   forAll (chooseIndex f) $
@@ -96,7 +102,7 @@ prop_queryrank f =
 _select :: FDynamic -> Int -> Maybe Int
 _select f i = do
   (SizeRank s r, block) <- find f (rank i)
-  let bits = unGapBlock block
+  let bits = decode block
   fmap (+s) $ select bits (i-r)
   
 prop_select f =
@@ -107,7 +113,7 @@ prop_select f =
 
 _insert :: FDynamic -> Int -> Bool -> FDynamic
 _insert (FDynamic size f) i val =
-  FDynamic size (before >< (gapBlock newbits) <| after)
+  FDynamic size (before >< (encode newbits) <| after)
     where (before', after') = split (index i) f
           
           (before, block, after) =
@@ -120,7 +126,7 @@ _insert (FDynamic size f) i val =
           
           (SizeRank s _) = measure before
           i' = i-s
-          bits = unGapBlock block
+          bits = decode block
           newbits = insert bits i' val
 
 prop_insert f =
