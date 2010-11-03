@@ -22,6 +22,10 @@ test xs = let encoded = E.gap_encode xs
 test2 :: [Bool] -> ()
 test2 xs = let out = E2.unGapBlock (E2.gapBlock xs)
            in last out `seq` ()
+              
+test3 :: [Bool] -> ()
+test3 xs = let out = E2.unNibbleBlock (E2.nibbleBlock xs)
+           in last out `seq` ()
 
 gen n = cycle $ True : replicate (n-1) False
 
@@ -31,20 +35,28 @@ diff start end =
                      + realToFrac(tdPicosec timediff) / 1000000000000
   in print secondsfloat
 
-
 main = do
   n':k':_ <- getArgs
   let n = read n'
       k = read k'
+      input0 = gen
+      
   start <- getClockTime
   let input = take n $ gen k
     in print (test input)
   end <- getClockTime
   diff start end
+  
   start2 <- getClockTime
   let input = take n $ gen k
     in print (test2 input)
   end2 <- getClockTime
   diff start2 end2
   
+  start3 <- getClockTime
+  let input = take n $ gen k
+    in print (test3 input)
+  end3 <- getClockTime
+  diff start3 end3
+
   
