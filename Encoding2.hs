@@ -239,7 +239,6 @@ prop_gap_block xs =
 
 ----
 
-nibbleTerminator = Code 4 8
 
 nibbleEncode :: Int -> Code
 nibbleEncode i
@@ -250,16 +249,29 @@ nibbleEncode i
           go acc 0 = acc 
           go acc i = go (snip i +++ acc) (shiftR i 3)
 
+nibbleTerminator :: Int
+nibbleTerminator = 8
+
+nibbleTerminatorCode :: Code
+nibbleTerminatorCode = Code 4 8
+
+nibble :: Block -> Int -> Int
+nibble (Block a) i = let (wi,bi) = i `divMod` 8 
+                         w = fromIntegral $ a!wi
+                     in case bi of
+                       0 -> w `shiftR` 4
+                       4 -> w .&. ones 4
+
 readNibble :: Block -> Int -> Maybe (Int,Int)
-readNibble b i = if readCode b i 4 == nibbleTerminator
+readNibble b i = if nibble b i == 8
                  then Nothing
                  else loop 0 i
   where loop acc i =
-          let c = readCode b i 4
-              value = getCode c .&. ones 3
-              acc' = shiftL acc 3 .|. value
-          in case testBit (getCode c) 3 of
-            False -> Just (fromIntegral $ acc',i+4)
+          let n = nibble b i
+              value = n .&. ones 3
+              acc' = (acc `shiftL` 3) .|. value
+          in case testBit n 3 of
+            False -> Just (fromIntegral acc',i+4)
             True -> loop acc' (i+4)
             
 prop_nibble = 
@@ -272,9 +284,9 @@ readNibbles block = unfoldr (readNibble block) 0
 
 prop_readNibbles =
   forAll (listOf1 $ choose (0,2^30)) $ \is ->
-  is == (readNibbles . makeBlock . (++[nibbleTerminator]) . map nibbleEncode) is
+  is == (readNibbles . makeBlock . (++[nibbleTerminatorCode]) . map nibbleEncode) is
 
-gapNibble = gapEncode_ nibbleEncode nibbleTerminator
+gapNibble = gapEncode_ nibbleEncode nibbleTerminatorCode
 nibbleBlock = makeBlock . gapNibble
 unNibbleBlock = gapDecode . readNibbles
 
