@@ -217,6 +217,7 @@ gapEncode_ enc terminator xs = loop xs 0
     loop (True:xs) !acc  = enc acc : loop xs 0
     loop (False:xs) !acc = loop xs (acc+1)
     
+gapEncode :: [Bool] -> [Code]
 gapEncode = gapEncode_ elias_encode (Code 0 0)
 
 gapBlock :: [Bool] -> Block

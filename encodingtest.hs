@@ -8,8 +8,12 @@ import Util
 import Data.Word
 import Data.Array.Unboxed
 
+import Random
+
 import System.Environment
 import System.Time
+
+import Control.Parallel.Strategies
 
 test :: [Bool] -> ()
 test xs = let encoded = E.gap_encode xs
@@ -27,7 +31,11 @@ test3 :: [Bool] -> ()
 test3 xs = let out = E2.unNibbleBlock (E2.nibbleBlock xs)
            in last out `seq` ()
 
-gen n = cycle $ True : replicate (n-1) False
+gen2 n k = map f . take n $ randoms (mkStdGen 0)
+  where 
+    f :: Int -> Bool
+    f a = a `mod` k == 0
+
 
 diff start end =
   let timediff = diffClockTimes end start
@@ -39,23 +47,23 @@ main = do
   n':k':_ <- getArgs
   let n = read n'
       k = read k'
-      input0 = gen
+      input0 = gen2 n k `using` rdeepseq
+      density = length (filter id input0)///length input0
+  
+  print density
       
   start <- getClockTime
-  let input = take n $ gen k
-    in print (test input)
+  print (test input0)
   end <- getClockTime
   diff start end
   
   start2 <- getClockTime
-  let input = take n $ gen k
-    in print (test2 input)
+  print (test2 input0)
   end2 <- getClockTime
   diff start2 end2
   
   start3 <- getClockTime
-  let input = take n $ gen k
-    in print (test3 input)
+  print (test3 input0)
   end3 <- getClockTime
   diff start3 end3
 

@@ -51,10 +51,12 @@ test t n k = do
   let go :: Int -> Int -> IO ()
       go x 0 = return ()
       go x i = {-# SCC "go" #-}
-             do {-# SCC "print" #-} do print x
-                                       print $ query t x
-                                       print $ queryrank t x
-                go (x*17`mod`n) (i-1)
+        do {-# SCC "go_x" #-}     putStr (show x)
+           {-# SCC "go_query" #-} if query t x
+                                    then putStr "T"
+                                    else putStr "F"
+           {-# SCC "go_rank" #-}  putStr (show $ queryrank t x)
+           go (x*17`mod`n) (i-1)
 
   go 1 k
 
