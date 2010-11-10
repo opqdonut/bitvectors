@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes,BangPatterns,FlexibleInstances #-}
+{-# LANGUAGE RankNTypes,BangPatterns,FlexibleInstances,MultiParamTypeClasses #-}
 
 module Encoding2 where
 
@@ -15,6 +15,9 @@ import Debug.Trace
 
 import Test.QuickCheck hiding ((.&.))
                               
+import Measure (SizeRank(..))
+import Data.FingerTree (Measured(..))
+  
 import Util
 
 -- A Code is a smallish chunk of bits
@@ -322,4 +325,36 @@ instance Encoded (EBlock NG) where
   decode = unNibbleBlock . unEBlock
   encode = EBlock . nibbleBlock
   
+data UN = UN
 
+instance Encoded (EBlock UN) where
+  decode = blockToBits . unEBlock
+  encode = EBlock . makeBlock . map f . cut 64
+    where
+      f xs = Code (fromIntegral $ length xs)
+                  (fromIntegral . unbitify . reverse $ xs)
+      
+prop_UN :: [Bool] -> Bool
+prop_UN xs = xs == take (length xs) (decode block)
+  where block :: EBlock UN
+        block = encode xs
+        
+        
+instance Measured SizeRank (EBlock EG) where
+    measure b =
+      let is = blockGaps $ unEBlock b
+      in SizeRank (sum is + length is - 1) (length is - 1)
+
+instance Measured SizeRank (EBlock NG) where
+    measure b =
+      let is = readNibbles $ unEBlock b
+      in SizeRank (sum is + length is - 1) (length is - 1)
+         
+-- XXX no proper termination for EBlock UN...
+instance Measured SizeRank (EBlock UN) where
+    measure (EBlock (Block arr)) =
+      let ws = elems arr
+          size = fromIntegral $ length ws * 8
+          rank = fromIntegral $ sum (map populationCount $ ws)
+      in SizeRank size rank
+    

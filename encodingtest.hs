@@ -31,6 +31,11 @@ test3 :: [Bool] -> ()
 test3 xs = let out = E2.unNibbleBlock (E2.nibbleBlock xs)
            in last out `seq` ()
 
+test4 :: [Bool] -> ()
+test4 xs = let block :: E2.EBlock E2.UN
+               block = E2.encode xs
+           in last (E2.decode block) `seq` ()
+
 gen2 n k = map f . take n $ randoms (mkStdGen 0)
   where 
     f :: Int -> Bool
@@ -66,5 +71,10 @@ main = do
   print (test3 input0)
   end3 <- getClockTime
   diff start3 end3
+
+  start4 <- getClockTime
+  print (test4 input0)
+  end4 <- getClockTime
+  diff start4 end4
 
   

@@ -17,26 +17,11 @@ import Prelude hiding (reverse,null)
 import Data.FingerTree
 import Data.Array.Unboxed (UArray,(!),bounds,elems)
 
-instance Measured SizeRank (EBlock EG) where
-    measure b =
-      let is = blockGaps $ unEBlock b
-      in SizeRank (sum is + length is - 1) (length is - 1)
-
-instance Measured SizeRank (EBlock NG) where
-    measure b =
-      let is = readNibbles $ unEBlock b
-      in SizeRank (sum is + length is - 1) (length is - 1)
-
 data FDynamic a = 
   (Measured SizeRank a, Encoded a) =>
   FDynamic 
   {blocksize :: Int,
    unwrap :: (FingerTree SizeRank a)}
-
-
-instance Show (FDynamic a) where
-  show f = "(FDynamic " ++ show (blocksize f) ++ " " ++ show (ftoList f) ++ ")"
-
 
 instance BitVector (FDynamic (EBlock EG)) where
   query = _query
@@ -49,7 +34,15 @@ instance BitVector (FDynamic (EBlock NG)) where
   queryrank = _queryrank
   select = _select
   construct = fDynamic
+  
+instance BitVector (FDynamic (EBlock UN)) where
+  query = _query
+  queryrank = _queryrank
+  select = _select
+  construct = fDynamic
 
+instance Show (FDynamic a) where
+  show f = "(FDynamic " ++ show (blocksize f) ++ " " ++ show (ftoList f) ++ ")"
 
 build :: (Encoded a, Measured SizeRank a) =>
          Int -> [Bool] -> FingerTree SizeRank a

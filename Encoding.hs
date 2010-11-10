@@ -37,24 +37,6 @@ bitify n i = map (testBit i) [0..n-1]
 type Encoder = [Bool]->[Bool]
 type Decoder = [Bool]->[Bool]
 
-bitify 0 = []
-bitify n | even n    = False : bitify (n`div`2)
-         | otherwise = True  : bitify (n`div`2) 
-
-pad len xs = take len $ xs ++ repeat False
-
-unbitify :: [Bool] -> Integer
-unbitify xs = go 0 1 xs
-    where go acc _ [] = acc
-          go acc k (True :xs) = go (acc+k) (2*k) xs
-          go acc k (False:xs) = go acc     (2*k) xs
-
-
-prop_unbitify_bitify i  = i>=0 ==> unbitify (bitify i) == i
-prop_bitify_unbitify xs' = 
-    let xs = xs'++[True] in bitify (unbitify xs) == xs
-
-prop_bitify_ilog x = x>0 ==> length (bitify x) == ilog2 x
 
 calc_o :: Integer -> Integer -> [Bool] -> Integer
 calc_o t c xs = go 0 t c xs

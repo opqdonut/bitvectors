@@ -3,7 +3,7 @@ module Main where
 import Util
 import Static
 import FingerTreeDynamic 
-import Encoding2 (EG,NG,EBlock)
+import Encoding2 (EG,NG,UN,EBlock)
 
 import Prelude 
 
@@ -38,6 +38,7 @@ main = do
             "sg" -> test (staticVector_gap n input) n k
             "fd" -> test (fDynamic n input :: FDynamic (EBlock EG)) n k
             "fdn" -> test (fDynamic n input :: FDynamic (EBlock NG)) n k
+            "fun" -> test (fDynamic n input :: FDynamic (EBlock UN)) n k
 
 
 test t n k = do

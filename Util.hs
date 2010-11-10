@@ -27,6 +27,26 @@ ilog2 n = go 0 n
     where go !acc 0 = acc
           go !acc n = go (acc+1) (shiftR n 1)
 
+bitify 0 = []
+bitify n | even n    = False : bitify (n`div`2)
+         | otherwise = True  : bitify (n`div`2) 
+
+pad len xs = take len $ xs ++ repeat False
+
+unbitify :: [Bool] -> Integer
+unbitify xs = go 0 1 xs
+    where go acc _ [] = acc
+          go acc k (True :xs) = go (acc+k) (2*k) xs
+          go acc k (False:xs) = go acc     (2*k) xs
+
+
+prop_unbitify_bitify i  = i>=0 ==> unbitify (bitify i) == i
+prop_bitify_unbitify xs' = 
+    let xs = xs'++[True] in bitify (unbitify xs) == xs
+
+prop_bitify_ilog x = x>0 ==> length (bitify x) == ilog2 x
+
+
 roundUpToPowerOf k x = go 1
     where go acc | acc >= x  = acc
                  | otherwise = go (k*acc)
