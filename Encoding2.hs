@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes,BangPatterns,FlexibleInstances,MultiParamTypeClasses #-}
 
-module Encoding2 where
+module Encoding2
+  where
 
 import Data.List (isPrefixOf,unfoldr)
 import Numeric (showHex)
@@ -41,7 +42,7 @@ a +++ b
   | otherwise = Code
                 (codelength a + codelength b)
                 (shiftL (getCode a) (fromIntegral $ codelength b)
-                 .|. (getCode b))
+                 .|. getCode b)
                 
 prop_plusplusplus :: Code -> Code -> Bool
 prop_plusplusplus a b 
@@ -49,8 +50,8 @@ prop_plusplusplus a b
   | otherwise = codeToBits (a+++b) == codeToBits a ++ codeToBits b
   
 instance Arbitrary Code where
-  arbitrary = do code <- fmap fromIntegral $ (arbitrary :: Gen Integer)
-                 codelength <- fmap fromIntegral $ (choose (0,64) :: Gen Integer)
+  arbitrary = do code <- fmap fromIntegral (arbitrary :: Gen Integer)
+                 codelength <- fmap fromIntegral (choose (0,64) :: Gen Integer)
                  return (Code codelength code)
   shrink (Code len code) = do l <- shrink len
                               return (Code l code)
@@ -58,7 +59,7 @@ instance Arbitrary Code where
 {-# SPECIALIZE ones :: Int -> Word8 #-}
 {-# SPECIALIZE ones :: Int -> Word64 #-}
 ones :: Bits a => Int -> a
-ones i = (setBit 0 i) - 1
+ones i = setBit 0 i - 1
 
 elias_encode :: Int -> Code
 elias_encode 0 = Code 1 1
@@ -67,8 +68,8 @@ elias_encode i
   | otherwise = code
   where l  = ilog2 i
         ll = ilog2 l
-        icode  = Code (fromIntegral $ l-1)  ((fromIntegral i) .&. ones (l-1))
-        lcode  = Code (fromIntegral $ ll-1) ((fromIntegral l) .&. ones (ll-1))
+        icode  = Code (fromIntegral $ l-1)  (fromIntegral i .&. ones (l-1))
+        lcode  = Code (fromIntegral $ ll-1) (fromIntegral l .&. ones (ll-1))
         llcode = Code (fromIntegral $ ll+1) (setBit 0 0)
         code = llcode +++ lcode +++ icode
         
@@ -82,7 +83,7 @@ instance Show Block where
   show (Block a) = "Block " ++ concatMap s (elems a)
     where 
       s :: Word8 -> String
-      s w = (showHex w "") ++ ";"
+      s w = showHex w "" ++ ";"
 
 blockToBits :: Block -> [Bool]
 blockToBits (Block arr) = concatMap f (elems arr)
@@ -105,7 +106,7 @@ writeCode arr index c =
      let length = codelength c
          nWrite = min (8-bitIndex) (fromIntegral length)
          shifted = 
-           flip shiftR (fromIntegral length-nWrite) (getCode c)
+           shiftR (getCode c) (fromIntegral length-nWrite) 
          toWrite = fromIntegral
                    . flip shiftL (8-bitIndex-nWrite)
                    $ shifted
@@ -205,7 +206,7 @@ prop_read_write_elias =
     in (i == out && len == fromIntegral (codelength code))
 
 readEliass' :: Block -> Int -> [Int]
-readEliass' block i = unfoldr (readElias block) i
+readEliass' block = unfoldr (readElias block)
                     
 readEliass block = readEliass' block 0                    
 
@@ -355,6 +356,6 @@ instance Measured SizeRank (EBlock UN) where
     measure (EBlock (Block arr)) =
       let ws = elems arr
           size = fromIntegral $ length ws * 8
-          rank = fromIntegral $ sum (map populationCount $ ws)
+          rank = fromIntegral . sum $ map populationCount ws
       in SizeRank size rank
     

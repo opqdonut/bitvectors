@@ -21,7 +21,7 @@ data FDynamic a =
   (Measured SizeRank a, Encoded a) =>
   FDynamic 
   {blocksize :: Int,
-   unwrap :: (FingerTree SizeRank a)}
+   unwrap :: FingerTree SizeRank a}
 
 instance BitVector (FDynamic (EBlock EG)) where
   query = _query
@@ -127,7 +127,7 @@ prop_select_n = proto_select
 
 _insert :: (Measured SizeRank a, Encoded a) => FDynamic a -> Int -> Bool -> FDynamic a
 _insert (FDynamic size f) i val =
-  FDynamic size (before >< (encode newbits) <| after)
+  FDynamic size (before >< encode newbits <| after)
     where (before', after') = split (index i) f
           
           (before, block, after) =
