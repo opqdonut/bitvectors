@@ -8,8 +8,9 @@ REPEATS=${1:-1}
 echo '#' GIT: $(git log --oneline | head -1)
 echo '#' REPEATS: $REPEATS
 echo '#' QUERIES: $QUERIES
-for COMMAND in "./test sg" "./test fd" "./test fdn" "../impls/cst_v_1_0/mytest" \
-    "../impls/rlcsa/mytest"; do
+for COMMAND in "./test sg" "./test fd" "./test fdn" "./test fun"\
+    "../impls/cst_v_1_0/mytest" "../impls/rlcsa/mytest";
+do
     echo '#' $COMMAND " "
     for size in $SIZES; do
 	for j in $(seq $REPEATS); do
