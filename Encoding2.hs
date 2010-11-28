@@ -379,6 +379,13 @@ queryrankGaps gaps index = loop index 0 gaps
                         else (ones+1)
           | gap>left  = ones
 
+selectGaps :: [Int] -> Int -> Maybe Int
+selectGaps gaps index = loop 0 index gaps
+  where loop bits ones (gap:gaps)
+          | ones>0  = loop (bits+gap+1) (ones-1) gaps
+          | ones==0 = if null gaps
+                      then Nothing
+                      else Just (bits+gap)
 
 instance BitVector (EBlock EG) where
   construct _ = EBlock . gapBlock
@@ -386,7 +393,8 @@ instance BitVector (EBlock EG) where
               in queryGaps gaps i
   queryrank b i = let gaps = blockGaps $ unEBlock b
                   in queryrankGaps gaps i
-  select = undefined
+  select b i = let gaps = blockGaps $ unEBlock b
+               in selectGaps gaps i
   
 instance BitVector (EBlock NG) where
   construct _ = EBlock . nibbleBlock
@@ -394,5 +402,11 @@ instance BitVector (EBlock NG) where
               in queryGaps gaps i
   queryrank b i = let gaps = readNibbles $ unEBlock b
                   in queryrankGaps gaps i
-  select = undefined
+  select b i = let gaps = readNibbles $ unEBlock b
+               in selectGaps gaps i
   
+instance BitVector (EBlock UN) where
+  construct _ = encode
+  query b i = query (decode b) i
+  queryrank b i = queryrank (decode b) i
+  select b i = select (decode b) i

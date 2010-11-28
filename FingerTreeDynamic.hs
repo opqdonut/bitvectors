@@ -18,7 +18,7 @@ import Data.FingerTree
 import Data.Array.Unboxed (UArray,(!),bounds,elems)
 
 data FDynamic a = 
-  (Measured SizeRank a, Encoded a) =>
+  (Measured SizeRank a, BitVector a, Encoded a) =>
   FDynamic 
   {blocksize :: Int,
    unwrap :: FingerTree SizeRank a}
@@ -44,7 +44,7 @@ instance BitVector (FDynamic (EBlock UN)) where
 instance Show (FDynamic a) where
   show f = "(FDynamic " ++ show (blocksize f) ++ " " ++ show (ftoList f) ++ ")"
 
-build :: (Encoded a, Measured SizeRank a) =>
+build :: (BitVector a, Encoded a, Measured SizeRank a) =>
          Int -> [Bool] -> FingerTree SizeRank a
 build size xs = fromList $ unfoldr go xs
   where go [] = Nothing
@@ -52,7 +52,7 @@ build size xs = fromList $ unfoldr go xs
                 in block `seq` Just (block, drop size xs)
 
         
-fDynamic :: (Encoded a, Measured SizeRank a) =>
+fDynamic :: (BitVector a, Encoded a, Measured SizeRank a) =>
             Int -> [Bool] -> FDynamic a
 fDynamic n xs = FDynamic blocksize (build blocksize xs)
   where blocksize = roundUpToPowerOf 2 $ 2 * ilog2 n
@@ -79,11 +79,10 @@ find (FDynamic _ f) p =
     EmptyL    -> Nothing
      
 
-_query :: Encoded a => FDynamic a -> Int -> Bool
-_query f i = query bits i'
+_query :: BitVector a => FDynamic a -> Int -> Bool
+_query f i = query block i'
   where Just (SizeRank s r, block) = find f (index i)
         i' = i-s
-        bits = decode block
       
 proto_query f =
   forAll (chooseIndex f) $
@@ -95,11 +94,10 @@ prop_query_n :: FDynamic (EBlock NG) -> Property
 prop_query_n = proto_query
            
            
-_queryrank :: Encoded a => FDynamic a -> Int -> Int
-_queryrank f i = r + queryrank bits i'
+_queryrank :: BitVector a => FDynamic a -> Int -> Int
+_queryrank f i = r + queryrank block i'
   where Just (SizeRank s r, block) = find f (index i)
         i' = i-s
-        bits = decode block
         
 proto_queryrank f =
   forAll (chooseIndex f) $
@@ -110,11 +108,10 @@ prop_queryrank = proto_queryrank
 prop_queryrank_n :: FDynamic (EBlock NG) -> Property
 prop_queryrank_n = proto_queryrank
                   
-_select :: Encoded a => FDynamic a -> Int -> Maybe Int
+_select :: BitVector a => FDynamic a -> Int -> Maybe Int
 _select f i = do
   (SizeRank s r, block) <- find f (rank i)
-  let bits = decode block
-  fmap (+s) $ select bits (i-r)
+  fmap (+s) $ select block (i-r)
   
 proto_select f =
   forAll (chooseIndex f) $
@@ -154,7 +151,7 @@ prop_insert_n = proto_insert
 
 -- TEST INFRA
         
-arbitrary_impl :: (Encoded a, Measured SizeRank a) => Gen (FDynamic a)
+arbitrary_impl :: (BitVector a, Encoded a, Measured SizeRank a) => Gen (FDynamic a)
 arbitrary_impl = do xs <- listOf1 arbitrary
                     return $ fDynamic (length xs) xs
 shrink_impl f = do let dat = ftoList f
