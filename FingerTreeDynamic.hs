@@ -17,11 +17,9 @@ import Prelude hiding (reverse,null)
 import Data.FingerTree
 import Data.Array.Unboxed (UArray,(!),bounds,elems)
 
-data FDynamic a = 
-  (Measured SizeRank a, BitVector a, Encoded a) =>
-  FDynamic 
-  {blocksize :: Int,
-   unwrap :: FingerTree SizeRank a}
+data FDynamic a = (Measured SizeRank a, BitVector a, Encoded a) =>
+                  FDynamic {blocksize :: Int,
+                            unwrap :: FingerTree SizeRank a}
 
 instance BitVector (FDynamic (EBlock EG)) where
   query = _query
