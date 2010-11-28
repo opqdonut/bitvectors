@@ -20,6 +20,7 @@ import Measure (SizeRank(..))
 import Data.FingerTree (Measured(..))
   
 import Util
+import BitVector
 
 -- A Code is a smallish chunk of bits
 data Code = Code {codelength :: !Word8, code :: !Word64}
@@ -342,20 +343,56 @@ prop_UN xs = xs == take (length xs) (decode block)
         
         
 instance Measured SizeRank (EBlock EG) where
-    measure b =
-      let is = blockGaps $ unEBlock b
-      in SizeRank (sum is + length is - 1) (length is - 1)
+  measure b =
+    let is = blockGaps $ unEBlock b
+    in SizeRank (sum is + length is - 1) (length is - 1)
 
 instance Measured SizeRank (EBlock NG) where
-    measure b =
-      let is = readNibbles $ unEBlock b
-      in SizeRank (sum is + length is - 1) (length is - 1)
+  measure b =
+    let is = readNibbles $ unEBlock b
+    in SizeRank (sum is + length is - 1) (length is - 1)
          
 -- XXX no proper termination for EBlock UN...
 instance Measured SizeRank (EBlock UN) where
-    measure (EBlock (Block arr)) =
-      let ws = elems arr
-          size = fromIntegral $ length ws * 8
-          rank = fromIntegral . sum $ map populationCount ws
-      in SizeRank size rank
+  measure (EBlock (Block arr)) =
+    let ws = elems arr
+        size = fromIntegral $ length ws * 8
+        rank = fromIntegral . sum $ map populationCount ws
+    in SizeRank size rank
     
+       
+queryGaps :: [Int] -> Int -> Bool
+queryGaps gaps index = loop index gaps
+  where loop left (gap:gaps)
+          | gap<left  = loop (left-gap-1) gaps
+          | gap==left = if null gaps
+                        then error "Query past end of EBlock"
+                        else True
+          | gap>left  = False
+
+queryrankGaps :: [Int] -> Int -> Int
+queryrankGaps gaps index = loop index 0 gaps
+  where loop left ones (gap:gaps)
+          | gap<left  = loop (left-gap-1) (ones+1) gaps
+          | gap==left = if null gaps
+                        then error "Rank past end of EBlock"
+                        else (ones+1)
+          | gap>left  = ones
+
+
+instance BitVector (EBlock EG) where
+  construct _ = EBlock . gapBlock
+  query b i = let gaps = blockGaps $ unEBlock b
+              in queryGaps gaps i
+  queryrank b i = let gaps = blockGaps $ unEBlock b
+                  in queryrankGaps gaps i
+  select = undefined
+  
+instance BitVector (EBlock NG) where
+  construct _ = EBlock . nibbleBlock
+  query b i = let gaps = readNibbles $ unEBlock b
+              in queryGaps gaps i
+  queryrank b i = let gaps = readNibbles $ unEBlock b
+                  in queryrankGaps gaps i
+  select = undefined
+  
