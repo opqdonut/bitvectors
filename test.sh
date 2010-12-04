@@ -8,7 +8,7 @@ REPEATS=${1:-1}
 echo '#' GIT: $(git log --oneline | head -1)
 echo '#' REPEATS: $REPEATS
 echo '#' QUERIES: $QUERIES
-for COMMAND in "./test sg" "./test fd" "./test fdn" "./test fun"\
+for COMMAND in "./test sg" "./test s2" "./test fd" "./test fdn" "./test fun"\
     "../impls/cst_v_1_0/mytest" "../impls/rlcsa/mytest";
 do
     echo '#' $COMMAND " "
