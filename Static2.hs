@@ -20,9 +20,9 @@ type Small = Word16
 
 data 
   SuccinctArray =
-    SuccinctArray {stride :: Int,
-                   big :: V Big,
-                   small :: V Small}
+    SuccinctArray {stride :: !Int,
+                   big :: !(V Big),
+                   small :: !(V Small)}
     deriving Show
 
 (!-) :: SuccinctArray -> Int -> Big
@@ -55,11 +55,11 @@ prop_SuccinctArray =
   in vals' !! i == mkSuccinctArray stride vals' !- i
 
 data Static =
-  Static {compressed :: Block,
-          blockSize :: Int,
-          ranks :: SuccinctArray,      -- i -> rank(B,i*blockSize)
-          locations :: SuccinctArray,  -- \ mapping from unencoded locations
-          offsets :: SuccinctArray     -- / to encoded locations
+  Static {compressed :: !Block,
+          blockSize :: !Int,
+          ranks :: !SuccinctArray,      -- i -> rank(B,i*blockSize)
+          locations :: !SuccinctArray,  -- \ mapping from unencoded locations
+          offsets :: !SuccinctArray     -- / to encoded locations
          }
   deriving Show
   
