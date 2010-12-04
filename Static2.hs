@@ -9,6 +9,7 @@ import BitVector
 
 import Data.Array.Unboxed
 import Data.Word
+import Data.Int
 import Data.List
 
 import Test.QuickCheck
@@ -16,7 +17,7 @@ import Test.QuickCheck
 type V = UArray Int
 
 type Big = Int
-type Small = Word16
+type Small = Int16
 
 data 
   SuccinctArray =
@@ -48,11 +49,14 @@ mkSuccinctArray stride vals =
 
 prop_SuccinctArray :: Property
 prop_SuccinctArray =
-  forAll (listOf1 arbitrary) $ \vals ->
+  forAll (listOf1 suitable) $ \vals ->
   forAll (choose (1,length vals)) $ \stride ->
   forAll (choose (0,length vals-1)) $ \i ->
-  let vals' = sort $ map fromIntegral (vals :: [Small])
+  let vals' = map fromIntegral (vals :: [Small])
   in vals' !! i == mkSuccinctArray stride vals' !- i
+    where 
+      suitable = fmap (`div` 4) arbitrary
+
 
 data Static =
   Static {compressed :: !Block,
@@ -66,7 +70,7 @@ data Static =
   
 mkStatic n bs = 
   let blockSize = ilog2 n
-      stride = blockSize ^ 2
+      stride = ilog2 n
       compressed = gapBlock bs
       p = process blockSize compressed
       (encposes,offsets,sizeranks) = unzip3 p

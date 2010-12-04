@@ -59,6 +59,7 @@ test t n k = do
                                     then putStr "T"
                                     else putStr "F"
            {-# SCC "go_rank" #-}  putStr (show $ queryrank t x)
+           putStr " "
            go (x*17`mod`n) (i-1)
 
   go 1 k
