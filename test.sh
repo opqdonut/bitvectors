@@ -14,8 +14,8 @@ do
     echo '#' $COMMAND " "
     for size in $SIZES; do
 	for j in $(seq $REPEATS); do
-	    FIRST=$(/usr/bin/time -f " %e" $COMMAND $size 100 2>&1 >/dev/null)
-	    SECOND=$(/usr/bin/time -f " %e" $COMMAND $size $QUERIES 2>&1 >/dev/null)
+	    FIRST=$(/usr/bin/time -f " %U" $COMMAND $size 100 2>&1 >/dev/null)
+	    SECOND=$(/usr/bin/time -f " %U" $COMMAND $size $QUERIES 2>&1 >/dev/null)
 	    echo $size $FIRST $SECOND
 	done
     done
