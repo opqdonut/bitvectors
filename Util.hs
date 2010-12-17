@@ -90,6 +90,10 @@ entropy k xs =
           combine (xs,n) (xs',n') = (xs++xs',n+n')
           m = M.fromListWith combine $ zip subs (zip chars $ repeat 1)
           x = sum [ n_xs * entropy 0 xs | (xs,n_xs) <- M.elems m ]
-          
-          
-                           
+
+-------------
+-- Test utils
+-------------
+
+chooseIndex :: [a] -> Gen Int
+chooseIndex xs = choose (0,length xs - 1)

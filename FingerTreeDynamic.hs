@@ -83,7 +83,7 @@ _query f i = query block i'
         i' = i-s
       
 proto_query f =
-  forAll (chooseIndex f) $
+  forAll (chooseFIndex f) $
   \i -> let dat = ftoList f
         in _query f i == query dat i
 prop_query :: FDynamic (EBlock EG) -> Property
@@ -98,7 +98,7 @@ _queryrank f i = r + queryrank block i'
         i' = i-s
         
 proto_queryrank f =
-  forAll (chooseIndex f) $
+  forAll (chooseFIndex f) $
   \i -> let dat = ftoList f
         in _queryrank f i == queryrank dat i
 prop_queryrank :: FDynamic (EBlock EG) -> Property
@@ -112,7 +112,7 @@ _select f i = do
   fmap (+s) $ select block (i-r)
   
 proto_select f =
-  forAll (chooseIndex f) $
+  forAll (chooseFIndex f) $
   \i -> let dat = ftoList f
         in _select f i == select dat i
 prop_select :: FDynamic (EBlock EG) -> Property
@@ -139,7 +139,7 @@ _insert (FDynamic size f) i val =
           newbits = insert bits i' val
 
 proto_insert f =
-  forAll (chooseIndex f) $ \i ->
+  forAll (chooseFIndex f) $ \i ->
     forAll (choose (False,True)) $ \val ->
       val == _query (_insert f i val) i
 prop_insert :: FDynamic (EBlock EG) -> Property
@@ -164,12 +164,12 @@ instance Arbitrary (FDynamic (EBlock NG)) where
   arbitrary = arbitrary_impl
   shrink = shrink_impl
 
-chooseIndex :: Measured SizeRank a => FDynamic a -> Gen Int
-chooseIndex f = 
+chooseFIndex :: Measured SizeRank a => FDynamic a -> Gen Int
+chooseFIndex f = 
   let (SizeRank s _) = measure (unwrap f)
   in choose (0,s-1)
      
-chooseRank :: Measured SizeRank a => FDynamic a -> Gen Int
-chooseRank f = 
+chooseFRank :: Measured SizeRank a => FDynamic a -> Gen Int
+chooseFRank f = 
   let (SizeRank _ r) = measure (unwrap f)
   in choose (0,r-1)
