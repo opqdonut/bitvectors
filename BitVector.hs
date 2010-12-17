@@ -14,6 +14,8 @@ class BitVector a where
   queryrank0 :: a -> Int -> Int 
   queryrank0 a i = i - queryrank a i + 1
 
+  --TODO: select0 :: a -> Int -> Maybe Int
+
 class DynamicBitVector a where
   insert :: a -> Int -> Bool -> a
 

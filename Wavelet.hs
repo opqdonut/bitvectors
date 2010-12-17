@@ -48,7 +48,7 @@ halve xs = go xs
         
 data WaveletTree a = Leaf Symbol
                    | Node [Symbol] a (WaveletTree a) (WaveletTree a)
-                   deriving Show
+  deriving Show
                      
 symbols :: WaveletTree a -> [Symbol]
 symbols (Leaf s) = [s]
@@ -79,10 +79,10 @@ instance Arbitrary (WaveletTree [Bool]) where
 
 wread :: BitVector a => WaveletTree a -> Int -> Symbol
 wread (Leaf symbol) i = symbol
-wread (Node _ b left right) i =
-  if query b i
-    then wread right (queryrank  b i - 1)
-    else wread left  (queryrank0 b i - 1)
+wread (Node _ b left right) i
+  | val == False = wread left  (queryrank0 b i - 1)
+  | val == True  = wread right (queryrank  b i - 1)
+    where val = query b i
 
 prop_wread :: NonEmptyList Symbol -> Property
 prop_wread (NonEmpty xs) =
@@ -108,3 +108,15 @@ prop_wrank (NonEmpty xs) =
         w :: WaveletTree [Bool]
         w = mkWavelet symbols xs
           
+        
+{-
+wselect :: BitVector a => WaveletTree a -> Symbol -> Int -> Int
+wselect (Leaf symbol) symbol' i =
+  if symbol==symbol'
+  then i-1
+  else error "This shouldn't happen!"
+wselect (Node _ guide left right) symbol i
+  | symbol `elem` symbols left  = select guide
+  | symbol `elem` symbols right = 
+-}
+
