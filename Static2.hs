@@ -19,12 +19,12 @@ type V = UArray Int
 type Big = Int
 type Small = Int16
 
-data 
-  SuccinctArray =
-    SuccinctArray {stride :: !Int,
-                   big :: !(V Big),
-                   small :: !(V Small)}
-    deriving Show
+data SuccinctArray =
+  SuccinctArray
+  {stride :: !Int,
+   big :: !(V Big),
+   small :: !(V Small)}
+  deriving Show
 
 (!-) :: SuccinctArray -> Int -> Big
 (SuccinctArray stride big small) !- i =
@@ -115,8 +115,11 @@ process stride block = format 0 (SizeRank 0 0) 0 $ loop 0 (SizeRank 0 0)
 _query :: Static -> Int -> Bool
 _query static i = 
   let arrayIndex = i `div` blockSize static
+      -- i' is the index for which we can get location and offset values
       i' = arrayIndex * blockSize static
+      -- we start decoding here
       location = locations static !- arrayIndex
+      -- total number of bits to skip from decoded stream
       offset = (offsets static !- arrayIndex) + (i-i')
       gaps = readEliass' (compressed static) location
   in

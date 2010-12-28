@@ -14,7 +14,7 @@ type Symbol = Char
 alphabetSplit :: [Symbol] ->  -- left alphas
                  [Symbol] ->  -- right alphas
                  [Symbol] ->  -- data
-                 ([Bool],   -- guide
+                 ([Bool],     -- guide
                   [Symbol],   -- left data
                   [Symbol])   -- right data
 alphabetSplit left right xs = (guide,l,r)
@@ -46,8 +46,9 @@ halve xs = go xs
   where go [] = ([],[])
         go (x:xs) = let (a,b) = go xs in (x:b,a)
         
-data WaveletTree a = Leaf Symbol
-                   | Node [Symbol] a (WaveletTree a) (WaveletTree a)
+data WaveletTree a
+  = Leaf Symbol
+  | Node [Symbol] a (WaveletTree a) (WaveletTree a)
   deriving Show
                      
 symbols :: WaveletTree a -> [Symbol]
@@ -55,14 +56,14 @@ symbols (Leaf s) = [s]
 symbols (Node ss _ _ _) = ss
 
 mkWavelet :: BitVector a =>
-             [Symbol] ->     -- symbols
+             [Symbol] ->     -- alphabet
              [Symbol] ->     -- data
              WaveletTree a
-
+-- base case: alphabet of size one gives a leaf
 mkWavelet [x] xs = if all (==x) xs
                    then Leaf x
                    else error ("Bad leaf! " ++ show x ++ " " ++ show xs)
-
+-- otherwise split the alphabet and recurse
 mkWavelet symbs xs = Node symbs vec left right
   where (lsymbs,rsymbs) = halve symbs  
         (guide,lxs,rxs) = alphabetSplit lsymbs rsymbs xs
