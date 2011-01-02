@@ -80,6 +80,10 @@ instance Arbitrary (WaveletTree [Bool]) where
   arbitrary = do xs <- listOf1 arbitrary
                  return $ mkWavelet' xs
 
+wlength :: BitVector a => WaveletTree a -> Int
+wlength (Node _ guide _ _) = querysize guide
+wlength (Leaf _) = error "Not yet implemented!"
+
 wread :: BitVector a => WaveletTree a -> Int -> Symbol
 wread (Leaf symbol) i = symbol
 wread (Node _ b left right) i
@@ -96,7 +100,7 @@ proto_wread construct (NonEmpty xs) =
        
 mkWavelet'list :: [Symbol] -> WaveletTree [Bool]
 mkWavelet'list = mkWavelet'
-mkWavelet'ng :: [Symbol] -> WaveletTree (EBlock NG)
+mkWavelet'ng :: [Symbol] -> WaveletTree NBlock
 mkWavelet'ng = mkWavelet'
 mkWavelet'static :: [Symbol] -> WaveletTree Static
 mkWavelet'static = mkWavelet'

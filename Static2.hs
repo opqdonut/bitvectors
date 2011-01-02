@@ -59,7 +59,8 @@ prop_SuccinctArray =
 
 
 data Static =
-  Static {compressed :: !Block,
+  Static {sbitlength :: !Int,
+          compressed :: !Block,
           blockSize :: !Int,
           ranks :: !SuccinctArray,      -- i -> rank(B,i*blockSize)
           locations :: !SuccinctArray,  -- \ mapping from unencoded locations
@@ -79,6 +80,7 @@ mkStatic n bs =
       mkArr = mkSuccinctArray stride . map fromIntegral
           
   in Static
+     n
      compressed
      blockSize
      (mkArr ranks)
@@ -153,3 +155,4 @@ instance BitVector Static where
   queryrank = _queryrank
   select = undefined
   construct = mkStatic
+  querysize = sbitlength

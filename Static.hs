@@ -42,6 +42,7 @@ instance BitVector StaticVector where
     queryrank = _queryrank
     construct = staticVector_gap
     select = undefined
+    querysize = undefined --- XXX
                 
 rank :: [Bool] -> Rank                  
 rank = count id

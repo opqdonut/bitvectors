@@ -13,6 +13,8 @@ class BitVector a where
 
   queryrank0 :: a -> Int -> Int 
   queryrank0 a i = i - queryrank a i + 1
+  
+  querysize :: a -> Int
 
   --TODO: select0 :: a -> Int -> Maybe Int
 
@@ -24,6 +26,7 @@ instance BitVector [Bool] where
   queryrank xs i = rank' $ take (i+1) xs
   select xs i = select' i xs
   construct = const id
+  querysize = length
   
 instance DynamicBitVector [Bool] where
   insert xs i val = a ++ val:b

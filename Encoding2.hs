@@ -309,56 +309,45 @@ elias_decode (Code length code) = if ll == 0 then 0 else i
 
 -----
 
-newtype EBlock a = EBlock {unEBlock :: Block}
+newtype EBlock = EBlock {unEBlock :: Block}
+newtype NBlock = NBlock {unNBlock :: Block}
+data UBlock = UBlock {ubitlength :: !Int, unUBlock :: !Block}
 
 class Encoded a where
   decode :: a -> [Bool]
   encode :: [Bool] -> a
 
-data EG = EG
-
-instance Encoded (EBlock EG) where
+instance Encoded EBlock where
   decode = unGapBlock . unEBlock
   encode = EBlock . gapBlock
   
-data NG = NG
-
-instance Encoded (EBlock NG) where
-  decode = unNibbleBlock . unEBlock
-  encode = EBlock . nibbleBlock
+instance Encoded NBlock where
+  decode = unNibbleBlock . unNBlock
+  encode = NBlock . nibbleBlock
   
-data UN = UN
-
-instance Encoded (EBlock UN) where
-  decode = blockToBits . unEBlock
-  encode = EBlock . makeBlock . map f . cut 64
+instance Encoded UBlock where
+  decode b = take (ubitlength b) $ blockToBits (unUBlock b)
+  encode xs = UBlock (length xs) . makeBlock . map f . cut 64 $ xs
     where
       f xs = Code (fromIntegral $ length xs)
                   (fromIntegral . unbitify . reverse $ xs)
       
-prop_UN :: [Bool] -> Bool
-prop_UN xs = xs == take (length xs) (decode block)
-  where block :: EBlock UN
-        block = encode xs
-        
-        
-instance Measured SizeRank (EBlock EG) where
+instance Measured SizeRank EBlock where
   measure b =
     let is = blockGaps $ unEBlock b
     in SizeRank (sum is + length is - 1) (length is - 1)
 
-instance Measured SizeRank (EBlock NG) where
+instance Measured SizeRank NBlock where
   measure b =
-    let is = readNibbles $ unEBlock b
+    let is = readNibbles $ unNBlock b
     in SizeRank (sum is + length is - 1) (length is - 1)
          
--- XXX no proper termination for EBlock UN...
-instance Measured SizeRank (EBlock UN) where
-  measure (EBlock (Block arr)) =
-    let ws = elems arr
-        size = fromIntegral $ length ws * 8
-        rank = fromIntegral . sum $ map populationCount ws
-    in SizeRank size rank
+--- XXX could be more efficient
+instance Measured SizeRank UBlock where
+  measure (UBlock siz block) =
+    let bits = take siz $ blockToBits block
+        rank = rank' bits
+    in SizeRank siz rank
     
        
 queryGaps :: [Int] -> Int -> Bool
@@ -387,26 +376,29 @@ selectGaps gaps index = loop 0 index gaps
                       then Nothing
                       else Just (bits+gap)
 
-instance BitVector (EBlock EG) where
-  construct _ = EBlock . gapBlock
+instance BitVector EBlock where
+  construct _ = encode
   query b i = let gaps = blockGaps $ unEBlock b
               in queryGaps gaps i
   queryrank b i = let gaps = blockGaps $ unEBlock b
                   in queryrankGaps gaps i
   select b i = let gaps = blockGaps $ unEBlock b
                in selectGaps gaps i
+  querysize = querysize . decode
   
-instance BitVector (EBlock NG) where
-  construct _ = EBlock . nibbleBlock
-  query b i = let gaps = readNibbles $ unEBlock b
+instance BitVector NBlock where
+  construct _ = encode
+  query b i = let gaps = readNibbles $ unNBlock b
               in queryGaps gaps i
-  queryrank b i = let gaps = readNibbles $ unEBlock b
+  queryrank b i = let gaps = readNibbles $ unNBlock b
                   in queryrankGaps gaps i
-  select b i = let gaps = readNibbles $ unEBlock b
+  select b i = let gaps = readNibbles $ unNBlock b
                in selectGaps gaps i
+  querysize = querysize . decode
   
-instance BitVector (EBlock UN) where
+instance BitVector UBlock where
   construct _ = encode
   query b i = query (decode b) i
   queryrank b i = queryrank (decode b) i
   select b i = select (decode b) i
+  querysize = querysize . decode

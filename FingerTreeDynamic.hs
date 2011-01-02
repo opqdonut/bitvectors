@@ -21,23 +21,26 @@ data FDynamic a = (Measured SizeRank a, BitVector a, Encoded a) =>
                   FDynamic {blocksize :: Int,
                             unwrap :: FingerTree SizeRank a}
 
-instance BitVector (FDynamic (EBlock EG)) where
+instance BitVector (FDynamic EBlock) where
   query = _query
   queryrank = _queryrank
   select = _select
   construct = fDynamic
+  querysize = _size
 
-instance BitVector (FDynamic (EBlock NG)) where
+instance BitVector (FDynamic NBlock) where
   query = _query
   queryrank = _queryrank
   select = _select
   construct = fDynamic
+  querysize = _size
   
-instance BitVector (FDynamic (EBlock UN)) where
+instance BitVector (FDynamic UBlock) where
   query = _query
   queryrank = _queryrank
   select = _select
   construct = fDynamic
+  querysize = _size
 
 instance Show (FDynamic a) where
   show f = "(FDynamic " ++ show (blocksize f) ++ " " ++ show (ftoList f) ++ ")"
@@ -67,7 +70,10 @@ ftoList (FDynamic _ f) = concatMap decode $ fingerTreeToList f
 blocks (FDynamic _ f) = map decode $ fingerTreeToList f
 
 prop_build size dat = (size>0) ==> out == dat
-  where out = concatMap decode . fingerTreeToList $ (build size dat :: FingerTree SizeRank (EBlock EG))
+  where out = concatMap decode . fingerTreeToList $ (build size dat :: FingerTree SizeRank EBlock)
+
+_size :: (BitVector a, Measured SizeRank a) => FDynamic a -> Int
+_size = getSize . measure . unwrap
 
 find :: FDynamic a -> (SizeRank->Bool) -> Maybe (SizeRank,a)
 find (FDynamic _ f) p =
@@ -86,9 +92,9 @@ proto_query f =
   forAll (chooseFIndex f) $
   \i -> let dat = ftoList f
         in _query f i == query dat i
-prop_query :: FDynamic (EBlock EG) -> Property
+prop_query :: FDynamic EBlock -> Property
 prop_query = proto_query
-prop_query_n :: FDynamic (EBlock NG) -> Property
+prop_query_n :: FDynamic NBlock -> Property
 prop_query_n = proto_query
            
            
@@ -101,9 +107,9 @@ proto_queryrank f =
   forAll (chooseFIndex f) $
   \i -> let dat = ftoList f
         in _queryrank f i == queryrank dat i
-prop_queryrank :: FDynamic (EBlock EG) -> Property
+prop_queryrank :: FDynamic EBlock -> Property
 prop_queryrank = proto_queryrank
-prop_queryrank_n :: FDynamic (EBlock NG) -> Property
+prop_queryrank_n :: FDynamic NBlock -> Property
 prop_queryrank_n = proto_queryrank
                   
 _select :: BitVector a => FDynamic a -> Int -> Maybe Int
@@ -115,9 +121,9 @@ proto_select f =
   forAll (chooseFIndex f) $
   \i -> let dat = ftoList f
         in _select f i == select dat i
-prop_select :: FDynamic (EBlock EG) -> Property
+prop_select :: FDynamic EBlock -> Property
 prop_select = proto_select
-prop_select_n :: FDynamic (EBlock NG) -> Property
+prop_select_n :: FDynamic NBlock -> Property
 prop_select_n = proto_select
 
 _insert :: (Measured SizeRank a, Encoded a) => FDynamic a -> Int -> Bool -> FDynamic a
@@ -142,9 +148,9 @@ proto_insert f =
   forAll (chooseFIndex f) $ \i ->
     forAll (choose (False,True)) $ \val ->
       val == _query (_insert f i val) i
-prop_insert :: FDynamic (EBlock EG) -> Property
+prop_insert :: FDynamic EBlock -> Property
 prop_insert = proto_insert
-prop_insert_n :: FDynamic (EBlock NG) -> Property
+prop_insert_n :: FDynamic NBlock -> Property
 prop_insert_n = proto_insert
 
 -- TEST INFRA
@@ -156,11 +162,11 @@ shrink_impl f = do let dat = ftoList f
                    dat' <- shrink dat
                    return $ fDynamic (length dat') dat'               
                 
-instance Arbitrary (FDynamic (EBlock EG)) where
+instance Arbitrary (FDynamic EBlock) where
   arbitrary = arbitrary_impl
   shrink = shrink_impl
 
-instance Arbitrary (FDynamic (EBlock NG)) where
+instance Arbitrary (FDynamic NBlock) where
   arbitrary = arbitrary_impl
   shrink = shrink_impl
 

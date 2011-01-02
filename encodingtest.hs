@@ -32,7 +32,7 @@ test3 xs = let out = E2.unNibbleBlock (E2.nibbleBlock xs)
            in last out `seq` ()
 
 test4 :: [Bool] -> ()
-test4 xs = let block :: E2.EBlock E2.UN
+test4 xs = let block :: E2.UBlock
                block = E2.encode xs
            in last (E2.decode block) `seq` ()
 
