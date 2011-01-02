@@ -2,10 +2,12 @@
 
 module Wavelet where
 
+import Debug.Trace
 import Data.List
 import Test.QuickCheck
 
 import Static2
+import Encoding2
 import BitVector
 import Util
 
@@ -85,13 +87,27 @@ wread (Node _ b left right) i
   | val == True  = wread right (queryrank  b i - 1)
     where val = query b i
 
-prop_wread :: NonEmptyList Symbol -> Property
-prop_wread (NonEmpty xs) =
+proto_wread :: BitVector a => 
+               ([Symbol] -> WaveletTree a) -> NonEmptyList Symbol -> Property
+proto_wread construct (NonEmpty xs) =
   forAll (chooseIndex xs) $ \i ->
-    let w = mkWavelet' xs :: WaveletTree [Bool]
+    let w = construct xs
     in wread w i == xs !! i
        
+mkWavelet'list :: [Symbol] -> WaveletTree [Bool]
+mkWavelet'list = mkWavelet'
+mkWavelet'ng :: [Symbol] -> WaveletTree (EBlock NG)
+mkWavelet'ng = mkWavelet'
+mkWavelet'static :: [Symbol] -> WaveletTree Static
+mkWavelet'static = mkWavelet'
+    
+prop_wread_list   = proto_wread mkWavelet'list
+prop_wread_ng     = proto_wread mkWavelet'ng
+prop_wread_static = proto_wread mkWavelet'static
+       
 wrank :: BitVector a => WaveletTree a -> Symbol -> Int -> Int
+-- we fell of the tree while hunting for occurrences:
+wrank _             _       (-1) = 0
 wrank (Leaf symbol) symbol' i =
   if symbol==symbol'
   then i+1
@@ -100,15 +116,18 @@ wrank (Node _ guide left right) symbol i
   | symbol `elem` symbols left  = wrank left  symbol (queryrank0 guide i - 1)
   | symbol `elem` symbols right = wrank right symbol (queryrank  guide i - 1)
                                   
-prop_wrank :: NonEmptyList Symbol -> Property
-prop_wrank (NonEmpty xs) = 
+proto_wrank :: BitVector a => 
+               ([Symbol] -> WaveletTree a) -> NonEmptyList Symbol -> Property
+proto_wrank construct (NonEmpty xs) = 
   forAll (chooseIndex xs) $ \i ->
     forAll (elements symbols) $ \s ->
       wrank w s i == count (==s) (take (i+1) xs)
-  where symbols = nub $ sort xs
-        w :: WaveletTree [Bool]
-        w = mkWavelet symbols xs
-          
+  where w = construct xs
+        symbols = (nub . sort) xs
+        
+prop_wrank_list   = proto_wrank mkWavelet'list
+prop_wrank_ng     = proto_wrank mkWavelet'ng
+prop_wrank_static = proto_wrank mkWavelet'static
         
 {-
 wselect :: BitVector a => WaveletTree a -> Symbol -> Int -> Int
@@ -118,6 +137,6 @@ wselect (Leaf symbol) symbol' i =
   else error "This shouldn't happen!"
 wselect (Node _ guide left right) symbol i
   | symbol `elem` symbols left  = select guide
-  | symbol `elem` symbols right = 
+  | symbol `elem` symbols right = select0 guide
 -}
 

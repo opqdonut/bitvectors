@@ -145,7 +145,7 @@ prop_query =
 prop_queryrank :: Property
 prop_queryrank =
   forAll (listOf1 arbitrary) $ \bs ->
-  forAll (choose (0,(length bs)-1)) $ \i ->
+  forAll (chooseIndex bs) $ \i ->
   queryrank bs i == _queryrank (mkStatic (length bs) bs) i
   
 instance BitVector Static where
