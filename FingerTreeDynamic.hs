@@ -27,6 +27,9 @@ instance BitVector (FDynamic EBlock) where
   select = _select
   construct = fDynamic
   querysize = _size
+  
+instance DynamicBitVector (FDynamic EBlock) where
+  insert = _insert
 
 instance BitVector (FDynamic NBlock) where
   query = _query
@@ -35,12 +38,18 @@ instance BitVector (FDynamic NBlock) where
   construct = fDynamic
   querysize = _size
   
+instance DynamicBitVector (FDynamic NBlock) where
+  insert = _insert
+  
 instance BitVector (FDynamic UBlock) where
   query = _query
   queryrank = _queryrank
   select = _select
   construct = fDynamic
   querysize = _size
+  
+instance DynamicBitVector (FDynamic UBlock) where
+  insert = _insert
 
 instance Show (FDynamic a) where
   show f = "(FDynamic " ++ show (blocksize f) ++ " " ++ show (ftoList f) ++ ")"
@@ -153,8 +162,6 @@ _insert (FDynamic size f) i val =
                   bs :> b -> (bs, b, empty)
                   EmptyR -> error "_insert: This shouldn't happen!"
           
-          size = encodedSize block
-          
           (SizeRank s _) = measure before
           i' = i-s
           bits = decode block
@@ -175,9 +182,12 @@ prop_insert_n = proto_insert
         
 arbitrary_impl :: (BitVector a, Encoded a, Measured SizeRank a) => Gen (FDynamic a)
 arbitrary_impl = do xs <- listOf1 arbitrary
-                    return $ fDynamic (length xs) xs
+                    len <- choose (1,2^32)
+                    return $ fDynamic len xs
 shrink_impl f = do let dat = ftoList f
+                       siz = querysize f
                    dat' <- shrink dat
+                   siz' <- shrink siz
                    return $ fDynamic (length dat') dat'               
                 
 instance Arbitrary (FDynamic EBlock) where
