@@ -126,9 +126,23 @@ prop_select = proto_select
 prop_select_n :: FDynamic NBlock -> Property
 prop_select_n = proto_select
 
+balanceAt :: (Measured SizeRank a, Encoded a) =>
+             Int -> a -> FingerTree SizeRank a -> FingerTree SizeRank a
+balanceAt lim elem after
+  --- XXX the order of the cases is important!
+  | encodedSize elem > 2*lim
+    --- XXX! might produce elems that are too small!
+    = let (a,b) = cleave elem in a <| b <| after
+  | null after
+    = singleton elem
+  | encodedSize elem < lim
+    = let (a :< after') = viewl after in (combine elem a <| after')
+  | otherwise
+    = elem <| after
+
 _insert :: (Measured SizeRank a, Encoded a) => FDynamic a -> Int -> Bool -> FDynamic a
 _insert (FDynamic size f) i val =
-  FDynamic size (before >< encode newbits <| after)
+  FDynamic size (before >< balanced)
     where (before', after') = split (index i) f
           
           (before, block, after) =
@@ -139,10 +153,14 @@ _insert (FDynamic size f) i val =
                   bs :> b -> (bs, b, empty)
                   EmptyR -> error "_insert: This shouldn't happen!"
           
+          size = encodedSize block
+          
           (SizeRank s _) = measure before
           i' = i-s
           bits = decode block
           newbits = insert bits i' val
+          
+          balanced = balanceAt size (encode newbits) after
 
 proto_insert f =
   forAll (chooseFIndex f) $ \i ->

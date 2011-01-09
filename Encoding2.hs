@@ -316,14 +316,27 @@ data UBlock = UBlock {ubitlength :: !Int, unUBlock :: !Block}
 class Encoded a where
   decode :: a -> [Bool]
   encode :: [Bool] -> a
+  encodedSize :: a -> Int
+  
+  combine :: a -> a -> a
+  combine x y = encode (decode x ++ decode y)
+  
+  cleave :: a -> (a,a)
+  cleave b = let bits = decode b
+                 n = length bits
+                 (x,y) = splitAt (n `div` 2) bits
+             in (encode x, encode y)
+  
 
 instance Encoded EBlock where
   decode = unGapBlock . unEBlock
   encode = EBlock . gapBlock
+  encodedSize = bitLength . unEBlock
   
 instance Encoded NBlock where
   decode = unNibbleBlock . unNBlock
   encode = NBlock . nibbleBlock
+  encodedSize = bitLength . unNBlock
   
 instance Encoded UBlock where
   decode b = take (ubitlength b) $ blockToBits (unUBlock b)
@@ -331,6 +344,7 @@ instance Encoded UBlock where
     where
       f xs = Code (fromIntegral $ length xs)
                   (fromIntegral . unbitify . reverse $ xs)
+  encodedSize = ubitlength
       
 instance Measured SizeRank EBlock where
   measure b =
