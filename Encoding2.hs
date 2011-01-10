@@ -19,6 +19,8 @@ import Test.QuickCheck hiding ((.&.))
 import Measure (SizeRank(..))
 import Data.FingerTree (Measured(..))
   
+import Data.Monoid
+
 import Util
 import BitVector
 
@@ -62,9 +64,9 @@ instance Arbitrary Code where
 ones :: Bits a => Int -> a
 ones i = setBit 0 i - 1
 
-elias_encode :: Int -> Code
-elias_encode 0 = Code 1 1
-elias_encode i 
+elias_encode :: Gap -> Code
+elias_encode (Gap 0) = Code 1 1
+elias_encode (Gap i)
   | l+ll+ll-1 > 64 = error "number too big for elias_encode"
   | otherwise = code
   where l  = ilog2 i
@@ -185,41 +187,46 @@ fixedLeadingZeros :: ExtraBits a => a -> Int
 fixedLeadingZeros w@0 = bitSize w
 fixedLeadingZeros w = fromIntegral $ leadingZeros w
 
-readElias :: Block -> Int -> Maybe (Int,Int)
+newtype Gap = Gap {unGap :: Int}
+  deriving Eq
+
+readElias :: Block -> Int -> Maybe (Gap,Int)
 readElias b index =
   let code = (readCode b index 64)
       len = fromIntegral $ codelength code
   in case myLeadingZeros code
      of Nothing -> Nothing
-        Just 0 -> Just (0,index+1)
+        Just 0 -> Just (Gap 0,index+1)
         Just ll ->
           let l = fromIntegral $ shiftR (getCode code) (len-2*ll)
               almost = ones (l-1) .&. shiftR (getCode code) (len-(2*ll+l-1))
               final = setBit almost (l-1)
-          in Just (fromIntegral final, index+2*ll+l-1)
+          in Just (Gap $ fromIntegral final, index+2*ll+l-1)
     
     
 prop_read_write_elias = 
   forAll (choose (0,8007199254740992)) $ \i -> 
-    let code = elias_encode i
+    let g = Gap i
+        code = elias_encode g
         block = makeBlock [code]
         Just (out,len) = readElias block 0
-    in (i == out && len == fromIntegral (codelength code))
+    in (g == out && len == fromIntegral (codelength code))
 
-readEliass' :: Block -> Int -> [Int]
+readEliass' :: Block -> Int -> [Gap]
 readEliass' block = unfoldr (readElias block)
                     
 readEliass block = readEliass' block 0                    
 
 prop_read_eliass =
   forAll (listOf1 $ choose (0,8007199254740992)) $ \is ->
-    is == (readEliass . makeBlock . map elias_encode) is
+    let gs = map Gap is
+    in gs == (readEliass . makeBlock . map elias_encode) gs
 
-gapEncode_ :: (Int->Code) -> Code -> [Bool] -> [Code]
+gapEncode_ :: (Gap->Code) -> Code -> [Bool] -> [Code]
 gapEncode_ enc terminator xs = loop xs 0
   where
-    loop [] !acc         = [enc acc, terminator]
-    loop (True:xs) !acc  = enc acc : loop xs 0
+    loop [] !acc         = [enc (Gap acc), terminator]
+    loop (True:xs) !acc  = enc (Gap acc) : loop xs 0
     loop (False:xs) !acc = loop xs (acc+1)
     
 gapEncode :: [Bool] -> [Code]
@@ -228,16 +235,13 @@ gapEncode = gapEncode_ elias_encode (Code 0 0)
 gapBlock :: [Bool] -> Block
 gapBlock = makeBlock . gapEncode
 
-gapDecode :: [Int] -> [Bool]
+gapDecode :: [Gap] -> [Bool]
 --gapDecode [] = []
-gapDecode (x:xs) =
-  replicate x False ++ concatMap (\i -> True:replicate i False) xs
+gapDecode (Gap x:xs) =
+  replicate x False ++ concatMap (\i -> True:replicate (unGap i) False) xs
 
 unGapBlock :: Block -> [Bool]
 unGapBlock = gapDecode . readEliass
-
-blockGaps :: Block -> [Int]
-blockGaps = readEliass
 
 prop_gap_block xs =
   xs == unGapBlock (gapBlock xs)
@@ -246,8 +250,8 @@ prop_gap_block xs =
 ----
 
 
-nibbleEncode :: Int -> Code
-nibbleEncode i
+nibbleEncode :: Gap -> Code
+nibbleEncode (Gap i)
   | i<2^3 = Code 4 (fromIntegral i)
   | otherwise = go base (shiftR (fromIntegral i) 3)
     where base = Code 4 (fromIntegral i .&. ones 3)
@@ -269,7 +273,7 @@ nibble (Block a) i = fromIntegral $
                        0 -> w `shiftR` 4
                        4 -> w .&. ones 4
 
-readNibble :: Block -> Int -> Maybe (Int,Int)
+readNibble :: Block -> Int -> Maybe (Gap,Int)
 readNibble b i = if nibble b i == 8
                  then Nothing
                  else loop 0 i
@@ -278,20 +282,25 @@ readNibble b i = if nibble b i == 8
               value = n .&. ones 3
               acc' = (acc `shiftL` 3) .|. value
           in case testBit n 3 of
-            False -> Just (acc',i+4)
+            False -> Just (Gap acc',i+4)
             True -> loop acc' (i+4)
             
 prop_nibble = 
   forAll (choose (0,2^30)) $ \i ->
-    let Just (j,_) = readNibble (makeBlock [nibbleEncode i]) 0
+    let Just (Gap j,_) = readNibble (makeBlock [nibbleEncode (Gap i)]) 0
     in j == i
        
-readNibbles :: Block -> [Int]
+readNibbles :: Block -> [Gap]
 readNibbles block = unfoldr (readNibble block) 0
 
 prop_readNibbles =
   forAll (listOf1 $ choose (0,2^30)) $ \is ->
-  is == (readNibbles . makeBlock . (++[nibbleTerminatorCode]) . map nibbleEncode) is
+    let gs = map Gap is
+        out = (readNibbles 
+               . makeBlock
+               . (++[nibbleTerminatorCode])
+               . map nibbleEncode) gs
+    in gs == out
 
 gapNibble = gapEncode_ nibbleEncode nibbleTerminatorCode
 nibbleBlock = makeBlock . gapNibble
@@ -306,6 +315,44 @@ elias_decode :: Code -> Int
 elias_decode (Code length code) = if ll == 0 then 0 else i
   where ll = leadingZeros code - (64-length)
   -}
+-----
+
+instance BitVector [Gap] where
+
+  querysize = getSize . measure
+  
+  construct = undefined
+  
+  query gaps index = loop index gaps
+    where loop left (Gap gap:gaps)
+            | gap<left  = loop (left-gap-1) gaps
+            | gap==left = if null gaps
+                          then error "Query past end"
+                          else True
+            | gap>left  = False
+
+  queryrank gaps index = loop index 0 gaps
+    where loop left ones (Gap gap:gaps)
+            | gap<left  = loop (left-gap-1) (ones+1) gaps
+            | gap==left = if null gaps
+                          then error "Rank past end"
+                          else (ones+1)
+            | gap>left  = ones
+
+  select gaps index = loop 0 index gaps
+    where loop bits ones (Gap gap:gaps)
+            | ones>0  = loop (bits+gap+1) (ones-1) gaps
+            | ones==0 = if null gaps
+                        then Nothing
+                        else Just (bits+gap)
+
+instance Measured SizeRank Gap where
+  measure (Gap gap) = SizeRank (gap+1) 1
+
+instance Measured SizeRank [Gap] where
+  -- the last gap has no final 1
+  measure gs = let SizeRank s r = mconcat (map measure gs)
+               in SizeRank (s-1) (r-1)
 
 -----
 
@@ -347,14 +394,10 @@ instance Encoded UBlock where
   encodedSize = ubitlength
       
 instance Measured SizeRank EBlock where
-  measure b =
-    let is = blockGaps $ unEBlock b
-    in SizeRank (sum is + length is - 1) (length is - 1)
+  measure = measure . readEliass . unEBlock
 
 instance Measured SizeRank NBlock where
-  measure b =
-    let is = readNibbles $ unNBlock b
-    in SizeRank (sum is + length is - 1) (length is - 1)
+  measure = measure . readNibbles . unNBlock 
          
 --- XXX could be more efficient
 instance Measured SizeRank UBlock where
@@ -364,51 +407,26 @@ instance Measured SizeRank UBlock where
     in SizeRank siz rank
     
        
-queryGaps :: [Int] -> Int -> Bool
-queryGaps gaps index = loop index gaps
-  where loop left (gap:gaps)
-          | gap<left  = loop (left-gap-1) gaps
-          | gap==left = if null gaps
-                        then error "Query past end of EBlock"
-                        else True
-          | gap>left  = False
-
-queryrankGaps :: [Int] -> Int -> Int
-queryrankGaps gaps index = loop index 0 gaps
-  where loop left ones (gap:gaps)
-          | gap<left  = loop (left-gap-1) (ones+1) gaps
-          | gap==left = if null gaps
-                        then error "Rank past end of EBlock"
-                        else (ones+1)
-          | gap>left  = ones
-
-selectGaps :: [Int] -> Int -> Maybe Int
-selectGaps gaps index = loop 0 index gaps
-  where loop bits ones (gap:gaps)
-          | ones>0  = loop (bits+gap+1) (ones-1) gaps
-          | ones==0 = if null gaps
-                      then Nothing
-                      else Just (bits+gap)
 
 instance BitVector EBlock where
   construct _ = encode
-  query b i = let gaps = blockGaps $ unEBlock b
-              in queryGaps gaps i
-  queryrank b i = let gaps = blockGaps $ unEBlock b
-                  in queryrankGaps gaps i
-  select b i = let gaps = blockGaps $ unEBlock b
-               in selectGaps gaps i
-  querysize = querysize . decode
+  query b i = let gaps = readEliass (unEBlock b)
+              in query gaps i
+  queryrank b i = let gaps = readEliass (unEBlock b)
+                  in queryrank gaps i
+  select b i = let gaps = readEliass (unEBlock b)
+               in select gaps i
+  querysize = querysize . readEliass . unEBlock
   
 instance BitVector NBlock where
   construct _ = encode
-  query b i = let gaps = readNibbles $ unNBlock b
-              in queryGaps gaps i
-  queryrank b i = let gaps = readNibbles $ unNBlock b
-                  in queryrankGaps gaps i
-  select b i = let gaps = readNibbles $ unNBlock b
-               in selectGaps gaps i
-  querysize = querysize . decode
+  query b i = let gaps = readNibbles (unNBlock b)
+              in query gaps i
+  queryrank b i = let gaps = readNibbles (unNBlock b)
+                  in queryrank gaps i
+  select b i = let gaps = readNibbles (unNBlock b)
+               in select gaps i
+  querysize = querysize . readEliass . unNBlock
   
 instance BitVector UBlock where
   construct _ = encode

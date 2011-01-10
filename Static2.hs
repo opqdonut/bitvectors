@@ -86,10 +86,7 @@ mkStatic n bs =
      (mkArr ranks)
      (mkArr encposes)
      (mkArr offsets)
-     
-measureGap :: Int -> SizeRank
-measureGap gap = SizeRank (gap+1) 1
-     
+          
 process :: Int
            -> Block
            -> [(Int,Int,SizeRank)]  -- [(encpos,offset,sr)]
@@ -98,7 +95,7 @@ process stride block = format 0 (SizeRank 0 0) 0 $ loop 0 (SizeRank 0 0)
           case readElias block i
           of
             Nothing -> [(i,acc)]
-            Just (gap,i') -> let acc' = acc +++ measureGap gap
+            Just (gap,i') -> let acc' = acc +++ measure gap
                              in (i,acc):loop i' acc'
                                 
         format :: Int->SizeRank->Int->[(Int,SizeRank)]->[(Int,Int,SizeRank)]
@@ -125,7 +122,7 @@ _query static i =
       offset = (offsets static !- arrayIndex) + (i-i')
       gaps = readEliass' (compressed static) location
   in
-   queryGaps gaps offset
+   query gaps offset
    
 _queryrank :: Static -> Int -> Int
 _queryrank static i =
@@ -136,7 +133,7 @@ _queryrank static i =
       baseRank = ranks static !- arrayIndex
       gaps = readEliass' (compressed static) location
   in
-   baseRank + queryrankGaps gaps offset
+   baseRank + queryrank gaps offset
           
 prop_query :: Property
 prop_query = 

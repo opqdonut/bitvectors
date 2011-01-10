@@ -181,12 +181,12 @@ prop_insert_n = proto_insert
 -- TEST INFRA
         
 arbitrary_impl :: (BitVector a, Encoded a, Measured SizeRank a) => Gen (FDynamic a)
-arbitrary_impl = do xs <- listOf1 arbitrary
+arbitrary_impl = do NonEmpty xs <- arbitrary
                     len <- choose (1,2^32)
                     return $ fDynamic len xs
 shrink_impl f = do let dat = ftoList f
                        siz = querysize f
-                   dat' <- shrink dat
+                   NonEmpty dat' <- shrink (NonEmpty dat)
                    siz' <- shrink siz
                    return $ fDynamic (length dat') dat'               
                 
