@@ -219,37 +219,20 @@ prop_read_eliass =
     let gs = map Gap is
     in gs == (readEliass . makeBlock . map elias_encode) gs
 
-gapEncode_ :: (Gap->Code) -> Code -> [Bool] -> [Code]
-gapEncode_ enc terminator xs = loop xs 0
-  --- XXX could use construct for [Gap]
+gapEncode_ :: (Gap->Code) -> Code -> [Gap] -> [Code]
+gapEncode_ enc terminator gs = loop gs 
   where
-    loop [] !acc         = [enc (Gap acc), terminator]
-    loop (True:xs) !acc  = enc (Gap acc) : loop xs 0
-    loop (False:xs) !acc = loop xs (acc+1)
+    loop []     = [terminator]
+    loop (g:gs) = enc g : loop gs
     
-gapEncode :: [Bool] -> [Code]
-gapEncode = gapEncode_ elias_encode (Code 0 0)
-
-gapBlock :: [Bool] -> Block
-gapBlock = makeBlock . gapEncode
-
-gapDecode :: [Gap] -> [Bool]
---gapDecode [] = []
-gapDecode (Gap x:xs) =
-  replicate x False ++ concatMap (\i -> True:replicate (unGap i) False) xs
-
-unGapBlock :: Block -> [Bool]
-unGapBlock = gapDecode . readEliass
-
-prop_gap_block xs =
-  xs == unGapBlock (gapBlock xs)
-
+eliasEncode :: [Gap] -> [Code]
+eliasEncode = gapEncode_ elias_encode (Code 0 0)
 
 ----
 
 
-nibbleEncode :: Gap -> Code
-nibbleEncode (Gap i)
+nibble_encode :: Gap -> Code
+nibble_encode (Gap i)
   | i<2^3 = Code 4 (fromIntegral i)
   | otherwise = go base (shiftR (fromIntegral i) 3)
     where base = Code 4 (fromIntegral i .&. ones 3)
@@ -285,7 +268,7 @@ readNibble b i = if nibble b i == 8
             
 prop_nibble = 
   forAll (choose (0,2^30)) $ \i ->
-    let Just (Gap j,_) = readNibble (makeBlock [nibbleEncode (Gap i)]) 0
+    let Just (Gap j,_) = readNibble (makeBlock [nibble_encode (Gap i)]) 0
     in j == i
        
 readNibbles :: Block -> [Gap]
@@ -297,16 +280,10 @@ prop_readNibbles =
         out = (readNibbles 
                . makeBlock
                . (++[nibbleTerminatorCode])
-               . map nibbleEncode) gs
+               . map nibble_encode) gs
     in gs == out
 
-gapNibble = gapEncode_ nibbleEncode nibbleTerminatorCode
-nibbleBlock = makeBlock . gapNibble
-unNibbleBlock = gapDecode . readNibbles
-
-prop_nibble_block xs =
-  xs == unNibbleBlock (nibbleBlock xs)
-
+nibbleEncode = gapEncode_ nibble_encode nibbleTerminatorCode
 
 {-
 elias_decode :: Code -> Int
@@ -323,36 +300,35 @@ newtype NBlock = NBlock {unNBlock :: Block}
 data UBlock = UBlock {ubitlength :: !Int, unUBlock :: !Block}
 
 class Encoded a where
-  decode :: a -> [Bool]
-  encode :: [Bool] -> a
+  decode :: a -> [Gap]
+  encode :: [Gap] -> a
   encodedSize :: a -> Int
   
+  --- XXX GAH HORRIBLE
   combine :: a -> a -> a
-  combine x y = encode (decode x ++ decode y)
+  combine x y = encode (gapify (unGapify (decode x) ++ unGapify (decode y)))
   
   cleave :: a -> (a,a)
-  cleave b = let bits = decode b
+  cleave b = let bits = unGapify (decode b)
                  n = length bits
                  (x,y) = splitAt (n `div` 2) bits
-             in (encode x, encode y)
+             in (encode (gapify x), encode (gapify y))
   
 
 instance Encoded EBlock where
-  decode = unGapBlock . unEBlock
-  encode = EBlock . gapBlock
+  decode = readEliass . unEBlock
+  encode = EBlock . makeBlock . eliasEncode
   encodedSize = bitLength . unEBlock
   
 instance Encoded NBlock where
-  decode = unNibbleBlock . unNBlock
-  encode = NBlock . nibbleBlock
+  decode = readNibbles . unNBlock
+  encode = NBlock . makeBlock . nibbleEncode
   encodedSize = bitLength . unNBlock
   
 instance Encoded UBlock where
-  decode b = take (ubitlength b) $ blockToBits (unUBlock b)
-  encode xs = UBlock (length xs) . makeBlock . map f . cut 64 $ xs
-    where
-      f xs = Code (fromIntegral $ length xs)
-                  (fromIntegral . unbitify . reverse $ xs)
+  decode b = gapify . take (ubitlength b) . blockToBits . unUBlock $ b
+  --- XXX 0 is ugly!
+  encode = construct 0 . unGapify 
   encodedSize = ubitlength
       
 instance Measured SizeRank EBlock where
@@ -371,27 +347,36 @@ instance Measured SizeRank UBlock where
        
 
 instance BitVector EBlock where
-  construct _ = encode
-  query b i = let gaps = readEliass (unEBlock b)
-              in query gaps i
-  queryrank b i = let gaps = readEliass (unEBlock b)
-                  in queryrank gaps i
-  select b i = let gaps = readEliass (unEBlock b)
-               in select gaps i
+  construct _ = encode . gapify
+  query     (EBlock b) i = query (readEliass b) i
+  queryrank (EBlock b) i = queryrank (readEliass b) i
+  select    (EBlock b) i = select (readEliass b) i
   querysize = querysize . readEliass . unEBlock
   
+instance DynamicBitVector EBlock where
+  insert (EBlock b) i val = encode newGaps
+    where newGaps = insert (readEliass b) i val
+  delete (EBlock b) i = encode newGaps
+    where newGaps = delete (readEliass b) i
+
 instance BitVector NBlock where
-  construct _ = encode
-  query b i = let gaps = readNibbles (unNBlock b)
-              in query gaps i
-  queryrank b i = let gaps = readNibbles (unNBlock b)
-                  in queryrank gaps i
-  select b i = let gaps = readNibbles (unNBlock b)
-               in select gaps i
+  construct _ = encode . gapify
+  query (NBlock b) i     = query (readNibbles b) i
+  queryrank (NBlock b) i = queryrank (readNibbles b) i
+  select (NBlock b) i    = select (readNibbles b) i
   querysize = querysize . readEliass . unNBlock
   
+instance DynamicBitVector NBlock where
+  insert (NBlock b) i val = encode newGaps
+    where newGaps = insert (readNibbles b) i val
+  delete (NBlock b) i = encode newGaps
+    where newGaps = delete (readNibbles b) i
+  
 instance BitVector UBlock where
-  construct _ = encode
+  construct _ xs = UBlock (length xs) . makeBlock . map f . cut 64 $ xs
+    where
+      f xs = Code (fromIntegral $ length xs)
+                  (fromIntegral . unbitify . reverse $ xs)
   query b i = query (decode b) i
   queryrank b i = queryrank (decode b) i
   select b i = select (decode b) i

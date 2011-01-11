@@ -121,8 +121,8 @@ staticVector_gap n =
     let slength = (ilog2 n)^2
         -- we want blength to be 2^k
         blength = roundUpToPowerOf 2 $ slength `mydiv` (2 * ilog2 n)
-        (enc,dec) = (gapEncode,
-                     \b i -> gapDecode $ readEliass' b i)
+        (enc,dec) = (eliasEncode . gapify,
+                     \b i -> unGapify $ readEliass' b i)
     in staticVector_prim n slength blength (enc,dec)
 
 staticVector_prim :: Int -> Int -> Int

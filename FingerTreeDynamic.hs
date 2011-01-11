@@ -58,7 +58,8 @@ build :: (BitVector a, Encoded a, Measured SizeRank a) =>
          Int -> [Bool] -> FingerTree SizeRank a
 build size xs = fromList $ unfoldr go xs
   where go [] = Nothing
-        go xs = let block = encode $ take size xs
+        --- XXX the "construct size" is a bit ugly
+        go xs = let block = construct size $ take size xs
                 in block `seq` Just (block, drop size xs)
 
         
@@ -74,12 +75,12 @@ fingerTreeToList f
                 in a : fingerTreeToList as
 
 ftoList :: FDynamic a -> [Bool]
-ftoList (FDynamic _ f) = concatMap decode $ fingerTreeToList f
+ftoList (FDynamic _ f) = concatMap (unGapify.decode) $ fingerTreeToList f
 
 blocks (FDynamic _ f) = map decode $ fingerTreeToList f
 
 prop_build size dat = (size>0) ==> out == dat
-  where out = concatMap decode . fingerTreeToList $ (build size dat :: FingerTree SizeRank EBlock)
+  where out = concatMap (unGapify.decode) . fingerTreeToList $ (build size dat :: FingerTree SizeRank EBlock)
 
 _size :: (BitVector a, Measured SizeRank a) => FDynamic a -> Int
 _size = getSize . measure . unwrap
@@ -164,10 +165,10 @@ _insert (FDynamic size f) i val =
           
           (SizeRank s _) = measure before
           i' = i-s
-          bits = decode block
-          newbits = insert bits i' val
+          gaps = decode block
+          newgaps = insert gaps i' val
           
-          balanced = balanceAt size (encode newbits) after
+          balanced = balanceAt size (encode newgaps) after
 
 proto_insert f =
   forAll (chooseFIndex f) $ \i ->

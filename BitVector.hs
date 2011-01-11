@@ -41,14 +41,21 @@ instance DynamicBitVector [Bool] where
 newtype Gap = Gap {unGap :: Int}
   deriving (Show,Eq)
 
+gapify :: [Bool] -> [Gap]
+gapify xs = loop xs 0
+  where loop [] acc         = [Gap acc]
+        loop (True:xs) acc  = Gap acc : loop xs 0
+        loop (False:xs) acc = loop xs (acc+1)
+
+unGapify :: [Gap] -> [Bool]
+unGapify (Gap x:xs) =
+  replicate x False ++ concatMap (\i -> True:replicate (unGap i) False) xs
+
 instance BitVector [Gap] where
 
   querysize gs = sum (map ((+1).unGap) gs) - 1
   
-  construct _ xs = loop xs 0
-    where loop [] acc         = [Gap acc]
-          loop (True:xs) acc  = Gap acc : loop xs 0
-          loop (False:xs) acc = loop xs (acc+1)
+  construct _ = gapify
   
   query gaps index = loop index gaps
     where loop left (Gap gap:gaps)
