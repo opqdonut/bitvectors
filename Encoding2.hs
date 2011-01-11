@@ -187,9 +187,6 @@ fixedLeadingZeros :: ExtraBits a => a -> Int
 fixedLeadingZeros w@0 = bitSize w
 fixedLeadingZeros w = fromIntegral $ leadingZeros w
 
-newtype Gap = Gap {unGap :: Int}
-  deriving Eq
-
 readElias :: Block -> Int -> Maybe (Gap,Int)
 readElias b index =
   let code = (readCode b index 64)
@@ -224,6 +221,7 @@ prop_read_eliass =
 
 gapEncode_ :: (Gap->Code) -> Code -> [Bool] -> [Code]
 gapEncode_ enc terminator xs = loop xs 0
+  --- XXX could use construct for [Gap]
   where
     loop [] !acc         = [enc (Gap acc), terminator]
     loop (True:xs) !acc  = enc (Gap acc) : loop xs 0
@@ -317,42 +315,6 @@ elias_decode (Code length code) = if ll == 0 then 0 else i
   -}
 -----
 
-instance BitVector [Gap] where
-
-  querysize = getSize . measure
-  
-  construct = undefined
-  
-  query gaps index = loop index gaps
-    where loop left (Gap gap:gaps)
-            | gap<left  = loop (left-gap-1) gaps
-            | gap==left = if null gaps
-                          then error "Query past end"
-                          else True
-            | gap>left  = False
-
-  queryrank gaps index = loop index 0 gaps
-    where loop left ones (Gap gap:gaps)
-            | gap<left  = loop (left-gap-1) (ones+1) gaps
-            | gap==left = if null gaps
-                          then error "Rank past end"
-                          else (ones+1)
-            | gap>left  = ones
-
-  select gaps index = loop 0 index gaps
-    where loop bits ones (Gap gap:gaps)
-            | ones>0  = loop (bits+gap+1) (ones-1) gaps
-            | ones==0 = if null gaps
-                        then Nothing
-                        else Just (bits+gap)
-
-instance Measured SizeRank Gap where
-  measure (Gap gap) = SizeRank (gap+1) 1
-
-instance Measured SizeRank [Gap] where
-  -- the last gap has no final 1
-  measure gs = let SizeRank s r = mconcat (map measure gs)
-               in SizeRank (s-1) (r-1)
 
 -----
 

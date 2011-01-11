@@ -1,5 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
+{-# LANGUAGE BangPatterns #-}
+
 module BitVector where
 
 import Util
@@ -20,6 +22,7 @@ class BitVector a where
 
 class DynamicBitVector a where
   insert :: a -> Int -> Bool -> a
+  delete :: a -> Int -> a
 
 instance BitVector [Bool] where
   query = (!!)
@@ -31,7 +34,66 @@ instance BitVector [Bool] where
 instance DynamicBitVector [Bool] where
   insert xs i val = a ++ val:b
     where (a,b) = splitAt i xs
-    
+  delete xs i = a ++ b
+    where (a,_:b) = splitAt i xs
+
+-- gap encoded bit vectors
+newtype Gap = Gap {unGap :: Int}
+  deriving (Show,Eq)
+
+instance BitVector [Gap] where
+
+  querysize gs = sum (map ((+1).unGap) gs) - 1
+  
+  construct _ xs = loop xs 0
+    where loop [] acc         = [Gap acc]
+          loop (True:xs) acc  = Gap acc : loop xs 0
+          loop (False:xs) acc = loop xs (acc+1)
+  
+  query gaps index = loop index gaps
+    where loop left (Gap gap:gaps)
+            | gap<left  = loop (left-gap-1) gaps
+            | gap==left = if null gaps
+                          then error "Query past end"
+                          else True
+            | gap>left  = False
+
+  queryrank gaps index = loop index 0 gaps
+    where loop left ones (Gap gap:gaps)
+            | gap<left  = loop (left-gap-1) (ones+1) gaps
+            | gap==left = if null gaps
+                          then error "Rank past end"
+                          else (ones+1)
+            | gap>left  = ones
+
+  select gaps index = loop 0 index gaps
+    where loop bits ones (Gap gap:gaps)
+            | ones>0  = loop (bits+gap+1) (ones-1) gaps
+            | ones==0 = if null gaps
+                        then Nothing
+                        else Just (bits+gap)
+
+instance DynamicBitVector [Gap] where
+  insert gaps index False = loop gaps index
+    where loop (Gap gap:gaps) index
+            | gap <  index = Gap gap : loop gaps (index-gap-1)
+            | gap >= index = Gap (gap+1) : gaps
+          loop [] _ = error "Insert past end!"
+  insert gaps index True = loop gaps index
+    where loop (Gap gap:gaps) index
+            | gap <  index = Gap gap : loop gaps (index-gap-1)
+            | gap >= index = Gap index : Gap (gap-index) : gaps
+          loop [] _ = error "Insert past end!"
+
+  delete gaps index = loop gaps index
+    where loop (Gap gap:gaps) index
+            | gap <  index = Gap gap : loop gaps (index-gap-1)
+            | gap == index = case gaps of
+                               [] -> error "Delete past end!"
+                               (Gap gap' : gaps') -> Gap (gap+gap') : gaps'
+            | gap >  index = Gap (gap-1) : gaps
+          loop [] _ = error "Delete past end!"
+
 
 rank' :: [Bool] -> Int
 rank' xs = count id xs

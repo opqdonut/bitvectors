@@ -31,6 +31,14 @@ instance Measured SizeRank Bool where
 instance Measured SizeRank [Bool] where
   measure xs = SizeRank (length xs) (rank' xs)
 
+instance Measured SizeRank Gap where
+  measure (Gap gap) = SizeRank (gap+1) 1
+
+instance Measured SizeRank [Gap] where
+  -- the last gap has no final 1
+  measure gs = let SizeRank s r = mconcat (map measure gs)
+               in SizeRank (s-1) (r-1)
+
 
 index :: Int->SizeRank->Bool
 index i = (>i).getSize
