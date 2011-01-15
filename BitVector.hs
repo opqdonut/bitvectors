@@ -51,6 +51,17 @@ unGapify :: [Gap] -> [Bool]
 unGapify (Gap x:xs) =
   replicate x False ++ concatMap (\i -> True:replicate (unGap i) False) xs
 
+concatGaps :: [Gap] -> [Gap] -> [Gap]
+concatGaps [Gap a] (Gap b:gs) = Gap (a+b) : gs
+concatGaps (a:as)  gs         = a : concatGaps as gs
+
+prop_concatGaps xs ys =
+  (gapify (xs ++ ys)) == concatGaps (gapify xs) (gapify ys)
+
+splitGaps gaps = let n = length gaps
+                     (x,y) = splitAt (n `div` 2) gaps
+                 in (x,Gap 0 : y)
+
 instance BitVector [Gap] where
 
   querysize gs = sum (map ((+1).unGap) gs) - 1

@@ -295,85 +295,84 @@ elias_decode (Code length code) = if ll == 0 then 0 else i
 
 -----
 
-newtype EBlock = EBlock {unEBlock :: Block}
-newtype NBlock = NBlock {unNBlock :: Block}
-data UBlock = UBlock {ubitlength :: !Int, unUBlock :: !Block}
+data EBlock = EBlock {emeasure :: !SizeRank,
+                      unEBlock :: !Block}
+data NBlock = NBlock {nmeasure :: !SizeRank,
+                      unNBlock :: !Block}
+data UBlock = UBlock {umeasure :: !SizeRank,
+                      unUBlock :: !Block}
 
 class Encoded a where
   decode :: a -> [Gap]
   encode :: [Gap] -> a
   encodedSize :: a -> Int
   
-  --- XXX GAH HORRIBLE
   combine :: a -> a -> a
-  combine x y = encode (gapify (unGapify (decode x) ++ unGapify (decode y)))
+  combine x y = encode $ concatGaps (decode x) (decode y)
   
   cleave :: a -> (a,a)
-  cleave b = let bits = unGapify (decode b)
-                 n = length bits
-                 (x,y) = splitAt (n `div` 2) bits
-             in (encode (gapify x), encode (gapify y))
+  cleave b = let (x,y) = splitGaps (decode b)
+             in (encode x, encode y)
   
 
 instance Encoded EBlock where
   decode = readEliass . unEBlock
-  encode = EBlock . makeBlock . eliasEncode
+  encode g = EBlock (measure g) . makeBlock . eliasEncode $ g
   encodedSize = bitLength . unEBlock
   
 instance Encoded NBlock where
   decode = readNibbles . unNBlock
-  encode = NBlock . makeBlock . nibbleEncode
+  encode g = NBlock (measure g) . makeBlock . nibbleEncode $ g
   encodedSize = bitLength . unNBlock
   
 instance Encoded UBlock where
-  decode b = gapify . take (ubitlength b) . blockToBits . unUBlock $ b
+  decode b = gapify . take (getSize (umeasure b)) . blockToBits . unUBlock $ b
   --- XXX 0 is ugly!
   encode = construct 0 . unGapify 
-  encodedSize = ubitlength
+  encodedSize = getSize . umeasure
       
 instance Measured SizeRank EBlock where
-  measure = measure . readEliass . unEBlock
+  measure = emeasure
 
 instance Measured SizeRank NBlock where
-  measure = measure . readNibbles . unNBlock 
+  measure = nmeasure
          
 --- XXX could be more efficient
 instance Measured SizeRank UBlock where
-  measure (UBlock siz block) =
-    let bits = take siz $ blockToBits block
-        rank = rank' bits
-    in SizeRank siz rank
+  measure = umeasure
     
        
 
 instance BitVector EBlock where
   construct _ = encode . gapify
-  query     (EBlock b) i = query (readEliass b) i
-  queryrank (EBlock b) i = queryrank (readEliass b) i
-  select    (EBlock b) i = select (readEliass b) i
+  query     (EBlock _ b) i = query (readEliass b) i
+  queryrank (EBlock _ b) i = queryrank (readEliass b) i
+  select    (EBlock _ b) i = select (readEliass b) i
   querysize = querysize . readEliass . unEBlock
   
 instance DynamicBitVector EBlock where
-  insert (EBlock b) i val = encode newGaps
+  -- XXX these recalculate the measure
+  insert (EBlock _ b) i val = encode newGaps
     where newGaps = insert (readEliass b) i val
-  delete (EBlock b) i = encode newGaps
+  delete (EBlock _ b) i = encode newGaps
     where newGaps = delete (readEliass b) i
 
 instance BitVector NBlock where
   construct _ = encode . gapify
-  query (NBlock b) i     = query (readNibbles b) i
-  queryrank (NBlock b) i = queryrank (readNibbles b) i
-  select (NBlock b) i    = select (readNibbles b) i
+  query     (NBlock _ b) i = query (readNibbles b) i
+  queryrank (NBlock _ b) i = queryrank (readNibbles b) i
+  select    (NBlock _ b) i = select (readNibbles b) i
   querysize = querysize . readEliass . unNBlock
   
 instance DynamicBitVector NBlock where
-  insert (NBlock b) i val = encode newGaps
+  -- XXX these recalculate the measure
+  insert (NBlock _ b) i val = encode newGaps
     where newGaps = insert (readNibbles b) i val
-  delete (NBlock b) i = encode newGaps
+  delete (NBlock _ b) i = encode newGaps
     where newGaps = delete (readNibbles b) i
   
 instance BitVector UBlock where
-  construct _ xs = UBlock (length xs) . makeBlock . map f . cut 64 $ xs
+  construct _ xs = UBlock (measure xs) . makeBlock . map f . cut 64 $ xs
     where
       f xs = Code (fromIntegral $ length xs)
                   (fromIntegral . unbitify . reverse $ xs)
