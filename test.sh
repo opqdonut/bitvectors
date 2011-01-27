@@ -9,7 +9,7 @@ echo '#' GIT: $(git log --oneline | head -1)
 echo '#' REPEATS: $REPEATS
 echo '#' QUERIES: $QUERIES
 for COMMAND in "./test sg" "./test s2" "./test fd" "./test fdn" "./test fun"\
-    "../impls/cst_v_1_0/mytest" "../impls/rlcsa/mytest";
+    "../impls/cst_v_1_0/mytest" "../impls/rlcsa/mytest" "../impls/gerlach/dynfmi/mytest";
 do
     echo '#' $COMMAND " "
     for size in $SIZES; do
