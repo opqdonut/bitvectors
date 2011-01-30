@@ -66,7 +66,7 @@ build size xs = fromList $ unfoldr go xs
 fDynamic :: (BitVector a, Encoded a, Measured SizeRank a) =>
             Int -> [Bool] -> FDynamic a
 fDynamic n xs = FDynamic blocksize (build blocksize xs)
-  where blocksize = roundUpToPowerOf 2 $ 2 * ilog2 n
+  where blocksize = roundUpToPowerOf 2 $ 16 * ilog2 n
         
 fingerTreeToList :: Measured v a => FingerTree v a -> [a]
 fingerTreeToList f
@@ -87,9 +87,10 @@ _size = getSize . measure . unwrap
 
 find :: FDynamic a -> (SizeRank->Bool) -> Maybe (SizeRank,a)
 find (FDynamic _ f) p =
-  let (before,after) = split p f
+  let (before,after) = {-# SCC "split-p-f" #-} split p f
+      m = {-# SCC "split-measure" #-} measure before
   in case viewl after of      
-    elem :< _ -> Just (measure before, elem)
+    elem :< _ -> Just (m, elem)
     EmptyL    -> Nothing
      
 
