@@ -5,7 +5,7 @@ import Static
 import FingerTreeDynamic 
 import Encoding2 (EBlock,UBlock,NBlock)
 import Static2
-import Tree (Dynamic,mkDynamic)
+import Tree (Dynamic,mkDynamic,SmallDynamic)
 
 import SmallBlock
 
@@ -46,6 +46,7 @@ main = do
             "fun"-> test (fDynamic n input :: FDynamic UBlock) n k
             "fs" -> test (fDynamic n input :: FDynamic SmallBlock) n k
             "t"  -> test (mkDynamic n input) n k
+            "ts" -> test (construct n input :: SmallDynamic) n k
 
 
 

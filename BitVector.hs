@@ -13,6 +13,9 @@ class BitVector a where
   select :: a -> Int -> Maybe Int
   construct :: Int -> [Bool] -> a
 
+  construct' :: [Bool] -> a
+  construct' xs = construct (length xs) xs
+
   queryrank0 :: a -> Int -> Int 
   queryrank0 a i = i - queryrank a i + 1
   

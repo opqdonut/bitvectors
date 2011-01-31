@@ -6,6 +6,7 @@ import Encoding2 hiding ((+++))
 import Util
 import Measure
 import BitVector
+import Testing
 
 import Data.Array.Unboxed
 import Data.Word
@@ -135,17 +136,11 @@ _queryrank static i =
   in
    baseRank + queryrank gaps offset
           
-prop_query :: Property
-prop_query = 
-  forAll (listOf1 arbitrary) $ \bs ->
-  forAll (choose (0,(length bs)-1)) $ \i ->
-  query bs i == _query (mkStatic (length bs) bs) i
-  
-prop_queryrank :: Property
-prop_queryrank =
-  forAll (listOf1 arbitrary) $ \bs ->
-  forAll (chooseIndex bs) $ \i ->
-  queryrank bs i == _queryrank (mkStatic (length bs) bs) i
+
+prop_s_query =
+  meta_bitvector (construct' :: [Bool] -> Static) query query
+prop_s_queryrank = 
+  meta_bitvector (construct' :: [Bool] -> Static) queryrank queryrank
   
 instance BitVector Static where
   query = _query

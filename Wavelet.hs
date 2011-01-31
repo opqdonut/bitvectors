@@ -69,7 +69,7 @@ mkWavelet [x] xs = if all (==x) xs
 mkWavelet symbs xs = Node symbs vec left right
   where (lsymbs,rsymbs) = halve symbs  
         (guide,lxs,rxs) = alphabetSplit lsymbs rsymbs xs
-        vec = construct (length guide) guide
+        vec = construct' guide
         left  = mkWavelet lsymbs lxs
         right = mkWavelet rsymbs rxs
         

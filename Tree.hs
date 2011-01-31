@@ -6,6 +6,8 @@ import Measure
 import BitVector
 import Encoding2 hiding ((+++))
 import Util
+import Testing
+import SmallBlock
 
 import Data.List hiding (find)
 import Test.QuickCheck
@@ -68,14 +70,8 @@ iteratePairUp [t] = t
 iteratePairUp ts = iteratePairUp $ pairUp ts
 
 mkbal :: Measured a v => [v] -> Tree a v
-mkbal xs = trace ("TH:" ++ show (treeHeight t)) t
+mkbal xs = t
   where t = iteratePairUp $ map leaf xs
-
-{-
-prop_mkbal :: [Bool] -> Gen Prop
-prop_mkbal xs = 
-  xs == toList (mkbal xs :: Tree SizeRank Bool)
--}
 
 --- quick'n'dirty bitvector
 
@@ -87,6 +83,25 @@ build size xs = mkbal $ unfoldr go xs
         go xs = let block = construct size $ take size xs
                 in block `seq` Just (block, drop size xs)
 
+instance (Measured SizeRank a, Encoded a, BitVector a) =>
+         BitVector (Tree SizeRank a) where
+  
+  construct n xs = build blocksize xs
+    where blocksize = roundUpToPowerOf 2 $ 16 * ilog2 n
+  
+  query t i = query block (i-s)
+    where Just ((SizeRank s r),block) = find (index i) t
+          
+  queryrank t i = r + queryrank block (i-s)
+    where Just ((SizeRank s r),block) = find (index i) t
+          
+  select t i = do
+    (SizeRank s r, block) <- find (rank i) t
+    fmap (+s) $ select block (i-r)
+    
+  querysize = getSize . measure
+
+
 newtype Dynamic = Dynamic (Tree SizeRank EBlock)
 
 mkDynamic n xs = Dynamic (build blocksize xs)
@@ -96,33 +111,27 @@ instance BitVector Dynamic where
   
   construct = mkDynamic
   
-  query (Dynamic t) i = query block (i-s)
-    where Just ((SizeRank s r),block) = find (index i) t
+  query (Dynamic t) i = query t i
           
-  queryrank (Dynamic t) i = r + queryrank block (i-s)
-    where Just ((SizeRank s r),block) = find (index i) t
+  queryrank (Dynamic t) i = queryrank t i
           
-  select (Dynamic t) i = do
-    (SizeRank s r, block) <- find (rank i) t
-    fmap (+s) $ select block (i-r)
+  select (Dynamic t) i = select t i
+  
+  querysize (Dynamic t) = querysize t
     
-prop_query :: NonEmptyList Bool -> Gen Bool
-prop_query (NonEmpty xs) = do
-  i <- chooseIndex xs
-  let a = query xs i
-  let b = query (mkDynamic (length xs) xs) i
-  return (a==b)
+prop_Dynamic = test_BitVector (construct' :: [Bool] -> Dynamic)
+       
+-----
+
+newtype SmallDynamic = SmallDynamic (Tree SizeRank SmallBlock)
+
+instance BitVector SmallDynamic where
   
-prop_queryrank :: NonEmptyList Bool -> Gen Bool
-prop_queryrank (NonEmpty xs) = do
-  i <- chooseIndex xs
-  let a = queryrank xs i
-  let b = queryrank (mkDynamic (length xs) xs) i
-  return (a==b)
+  construct siz xs = SmallDynamic (build 64 xs)
   
-prop_select :: NonEmptyList Bool -> Gen Prop
-prop_select (NonEmpty xs) =
-  forAll (chooseIndex xs) $ \i ->
-    let a = select xs i
-        b = select (mkDynamic (length xs) xs) i
-    in a==b
+  query (SmallDynamic t) i = query t i          
+  queryrank (SmallDynamic t) i = queryrank t i          
+  select (SmallDynamic t) i = select t i
+  querysize (SmallDynamic t) = querysize t
+
+prop_SmallDynamic = test_BitVector (construct' :: [Bool] -> SmallDynamic)

@@ -7,6 +7,7 @@ import Encoding2
 import Util
 import BitVector
 import SmallBlock
+import Testing
 
 import Data.List (unfoldr)
 
@@ -56,7 +57,7 @@ instance BitVector (FDynamic SmallBlock) where
   query = _query
   queryrank = _queryrank
   select = _select
-  construct = fDynamic
+  construct _ xs = FDynamic 64 (build 64 xs)
   querysize = _size
 
 instance Show (FDynamic a) where
@@ -74,7 +75,7 @@ build size xs = fromList $ unfoldr go xs
 fDynamic :: (BitVector a, Encoded a, Measured SizeRank a) =>
             Int -> [Bool] -> FDynamic a
 fDynamic n xs = FDynamic blocksize (build blocksize xs)
-  where blocksize = 64 --roundUpToPowerOf 2 $ 4 * ilog2 n
+  where blocksize = roundUpToPowerOf 2 $ 4 * ilog2 n
         
 fingerTreeToList :: Measured v a => FingerTree v a -> [a]
 fingerTreeToList f
@@ -107,44 +108,16 @@ _query f i = query block i'
   where Just (SizeRank s r, block) = find f (index i)
         i' = i-s
       
-proto_query f =
-  forAll (chooseFIndex f) $
-  \i -> let dat = ftoList f
-        in _query f i == query dat i
-prop_query :: FDynamic EBlock -> Property
-prop_query = proto_query
-prop_query_n :: FDynamic NBlock -> Property
-prop_query_n = proto_query
-           
-           
 _queryrank :: BitVector a => FDynamic a -> Int -> Int
 _queryrank f i = r + queryrank block i'
   where Just (SizeRank s r, block) = find f (index i)
         i' = i-s
         
-proto_queryrank f =
-  forAll (chooseFIndex f) $
-  \i -> let dat = ftoList f
-        in _queryrank f i == queryrank dat i
-prop_queryrank :: FDynamic EBlock -> Property
-prop_queryrank = proto_queryrank
-prop_queryrank_n :: FDynamic NBlock -> Property
-prop_queryrank_n = proto_queryrank
-                  
 _select :: BitVector a => FDynamic a -> Int -> Maybe Int
 _select f i = do
   (SizeRank s r, block) <- find f (rank i)
   fmap (+s) $ select block (i-r)
   
-proto_select f =
-  forAll (chooseFIndex f) $
-  \i -> let dat = ftoList f
-        in _select f i == select dat i
-prop_select :: FDynamic EBlock -> Property
-prop_select = proto_select
-prop_select_n :: FDynamic NBlock -> Property
-prop_select_n = proto_select
-
 balanceAt :: (Measured SizeRank a, Encoded a) =>
              Int -> a -> FingerTree SizeRank a -> FingerTree SizeRank a
 balanceAt lim elem after
@@ -217,3 +190,9 @@ chooseFRank :: Measured SizeRank a => FDynamic a -> Gen Int
 chooseFRank f = 
   let (SizeRank _ r) = measure (unwrap f)
   in choose (0,r-1)
+     
+prop_fd_UBlock = test_BitVector (construct' :: [Bool] -> FDynamic UBlock)
+prop_fd_NBlock = test_BitVector (construct' :: [Bool] -> FDynamic NBlock)
+prop_fd_EBlock = test_BitVector (construct' :: [Bool] -> FDynamic EBlock)
+prop_fd_SmallBlock =
+  test_BitVector (construct' :: [Bool] -> FDynamic SmallBlock)
