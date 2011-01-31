@@ -41,10 +41,10 @@ main = do
   case s of --"so" -> test (staticVector_ord n input) n k
             "sg" -> test (staticVector_gap n input) n k
             "s2" -> test (mkStatic n input) n k
-            "fd" -> test (fDynamic n input :: FDynamic EBlock) n k
-            "fdn"-> test (fDynamic n input :: FDynamic NBlock) n k
-            "fun"-> test (fDynamic n input :: FDynamic UBlock) n k
-            "fs" -> test (fDynamic n input :: FDynamic SmallBlock) n k
+            "fd" -> test (construct n input :: FDynamic EBlock) n k
+            "fdn"-> test (construct n input :: FDynamic NBlock) n k
+            "fun"-> test (construct n input :: FDynamic UBlock) n k
+            "fs" -> test (construct n input :: FDynamic SmallBlock) n k
             "t"  -> test (mkDynamic n input) n k
             "ts" -> test (construct n input :: SmallDynamic) n k
 
