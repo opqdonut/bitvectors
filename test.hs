@@ -5,6 +5,9 @@ import Static
 import FingerTreeDynamic 
 import Encoding2 (EBlock,UBlock,NBlock)
 import Static2
+import Tree (Dynamic,mkDynamic)
+
+import SmallBlock
 
 import Prelude 
 
@@ -39,8 +42,11 @@ main = do
             "sg" -> test (staticVector_gap n input) n k
             "s2" -> test (mkStatic n input) n k
             "fd" -> test (fDynamic n input :: FDynamic EBlock) n k
-            "fdn" -> test (fDynamic n input :: FDynamic NBlock) n k
-            "fun" -> test (fDynamic n input :: FDynamic UBlock) n k
+            "fdn"-> test (fDynamic n input :: FDynamic NBlock) n k
+            "fun"-> test (fDynamic n input :: FDynamic UBlock) n k
+            "fs" -> test (fDynamic n input :: FDynamic SmallBlock) n k
+            "t"  -> test (mkDynamic n input) n k
+
 
 
 test t n k = do

@@ -14,8 +14,8 @@ import Test.QuickCheck.Property
 
 data Tree a v = Empty
               | Leaf {measureLeaf :: !a, val :: v}
-              | Node {left :: Tree a v,
-                      right :: Tree a v,
+              | Node {left :: !(Tree a v),
+                      right :: !(Tree a v),
                       measureNode :: !a}
               deriving Show
                        
@@ -37,7 +37,7 @@ find :: Measured a v => (a -> Bool) -> Tree a v -> Maybe (a,v)
 find p t = go mempty t
   where
     go !acc (Leaf ann v)
-        | p (acc +++ ann) = let x = acc+++ann in x `seq` Just (x,v)
+        | p (acc +++ ann) = Just (acc,v)
         | otherwise = Nothing
     go !acc (Node l r ann)
         | p (acc +++ measure l) = go acc l
@@ -73,27 +73,24 @@ build size xs = mkbal $ unfoldr go xs
         go xs = let block = construct size $ take size xs
                 in block `seq` Just (block, drop size xs)
 
-newtype Dynamic = Dynamic (Tree SizeRank UBlock)
+newtype Dynamic = Dynamic (Tree SizeRank EBlock)
 
 mkDynamic n xs = Dynamic (build blocksize xs)
-  where blocksize = roundUpToPowerOf 2 $ 16 * ilog2 n
+  where blocksize = 128 --roundUpToPowerOf 2 $ 16 * ilog2 n
 
 instance BitVector Dynamic where
   
   construct = mkDynamic
   
-  query (Dynamic t) i = query block (i-(s-len))
+  query (Dynamic t) i = query block (i-s)
     where Just ((SizeRank s r),block) = find (index i) t
-          len = getSize . measure $ block
           
-  queryrank (Dynamic t) i = (r-r') + queryrank block (i-(s-s'))
+  queryrank (Dynamic t) i = r + queryrank block (i-s)
     where Just ((SizeRank s r),block) = find (index i) t
-          (SizeRank s' r') = measure block
           
   select (Dynamic t) i = do
     (SizeRank s r, block) <- find (rank i) t
-    let (SizeRank s' r') = measure block
-    fmap (+(s-s')) $ select block (i-(r-r'))
+    fmap (+s) $ select block (i-r)
     
 prop_query :: NonEmptyList Bool -> Gen Bool
 prop_query (NonEmpty xs) = do

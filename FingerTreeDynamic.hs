@@ -6,6 +6,7 @@ import Measure
 import Encoding2
 import Util
 import BitVector
+import SmallBlock
 
 import Data.List (unfoldr)
 
@@ -51,10 +52,17 @@ instance BitVector (FDynamic UBlock) where
 instance DynamicBitVector (FDynamic UBlock) where
   insert = _insert
 
+instance BitVector (FDynamic SmallBlock) where
+  query = _query
+  queryrank = _queryrank
+  select = _select
+  construct = fDynamic
+  querysize = _size
+
 instance Show (FDynamic a) where
   show f = "(FDynamic " ++ show (blocksize f) ++ " " ++ show (ftoList f) ++ ")"
 
-build :: (BitVector a, Encoded a, Measured SizeRank a) =>
+build :: (BitVector a, Measured SizeRank a) =>
          Int -> [Bool] -> FingerTree SizeRank a
 build size xs = fromList $ unfoldr go xs
   where go [] = Nothing
@@ -66,7 +74,7 @@ build size xs = fromList $ unfoldr go xs
 fDynamic :: (BitVector a, Encoded a, Measured SizeRank a) =>
             Int -> [Bool] -> FDynamic a
 fDynamic n xs = FDynamic blocksize (build blocksize xs)
-  where blocksize = roundUpToPowerOf 2 $ 16 * ilog2 n
+  where blocksize = 64 --roundUpToPowerOf 2 $ 4 * ilog2 n
         
 fingerTreeToList :: Measured v a => FingerTree v a -> [a]
 fingerTreeToList f
