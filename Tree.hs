@@ -11,6 +11,7 @@ import Data.List hiding (find)
 import Test.QuickCheck
 import Test.QuickCheck.Property
 
+import Debug.Trace
 
 data Tree a v = Empty
               | Leaf {measureLeaf :: !a, val :: v}
@@ -47,15 +48,28 @@ find p t = go mempty t
                       
 ---  building balanced trees
 
-mkbal_build :: Measured a v => [Tree a v] -> Tree a v
-mkbal_build ts = tree
-    where [tree] = build' ts
-          build' []       = []
-          build' [x]      = [x]
-          build' (l:r:xs) = build' (node l r : build' xs)
+treeHeight Empty = 0
+treeHeight (Leaf _ _) = 1
+treeHeight (Node l r _) = 1 + max (treeHeight l) (treeHeight r)
+
+showTreeShape i (Node l r _) = showTreeShape (i+1) l
+                               ++ replicate i ' ' ++ "N\n"
+                               ++ showTreeShape (i+1) r
+showTreeShape i Empty        = replicate i ' ' ++ "E\n"
+showTreeShape i (Leaf _ v)   = replicate i ' ' ++ "L " ++ show v ++"\n"
+
+pairUp :: Measured a v => [Tree a v] -> [Tree a v]
+pairUp []       = []
+pairUp [x]      = [x]
+pairUp (l:r:xs) = (node l r : pairUp xs)
+
+iteratePairUp :: Measured a v => [Tree a v] -> Tree a v
+iteratePairUp [t] = t
+iteratePairUp ts = iteratePairUp $ pairUp ts
 
 mkbal :: Measured a v => [v] -> Tree a v
-mkbal xs = mkbal_build $ map leaf xs
+mkbal xs = trace ("TH:" ++ show (treeHeight t)) t
+  where t = iteratePairUp $ map leaf xs
 
 {-
 prop_mkbal :: [Bool] -> Gen Prop
@@ -76,7 +90,7 @@ build size xs = mkbal $ unfoldr go xs
 newtype Dynamic = Dynamic (Tree SizeRank EBlock)
 
 mkDynamic n xs = Dynamic (build blocksize xs)
-  where blocksize = 128 --roundUpToPowerOf 2 $ 16 * ilog2 n
+  where blocksize = roundUpToPowerOf 2 $ 16 * ilog2 n
 
 instance BitVector Dynamic where
   
