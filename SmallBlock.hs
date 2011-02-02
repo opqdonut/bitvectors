@@ -44,7 +44,7 @@ instance BitVector SmallBlock where
 
 instance Encoded SmallBlock where
 
-  decode (SmallBlock (SizeRank s _) w) = gapify . deconstruct
+  decode = gapify . deconstruct
     
   encode gs = construct' bs
     where bs = unGapify gs 
