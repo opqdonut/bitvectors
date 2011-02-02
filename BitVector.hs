@@ -20,6 +20,9 @@ class BitVector a where
   queryrank0 a i = i - queryrank a i + 1
   
   querysize :: a -> Int
+  
+  deconstruct :: a -> [Bool]
+  deconstruct b = map (query b) [0 .. querysize b - 1]
 
   --TODO: select0 :: a -> Int -> Maybe Int
 
@@ -93,6 +96,9 @@ instance BitVector [Gap] where
             | ones==0 = if null gaps
                         then Nothing
                         else Just (bits+gap)
+                             
+  deconstruct = unGapify
+
 
 instance DynamicBitVector [Gap] where
   insert gaps index False = loop gaps index

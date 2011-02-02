@@ -39,10 +39,12 @@ instance BitVector SmallBlock where
 
   querysize = getSize . measureSmallBlock
 
+  deconstruct (SmallBlock (SizeRank s _) w) =
+    take s $ (bitify w ++ repeat False)
+
 instance Encoded SmallBlock where
 
-  decode (SmallBlock (SizeRank s _) w) =
-    gapify . take s $ (bitify w ++ repeat False)
+  decode (SmallBlock (SizeRank s _) w) = gapify . deconstruct
     
   encode gs = construct' bs
     where bs = unGapify gs 

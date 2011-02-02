@@ -326,7 +326,7 @@ instance Encoded NBlock where
   encodedSize = bitLength . unNBlock
   
 instance Encoded UBlock where
-  decode b = gapify . take (getSize (umeasure b)) . blockToBits . unUBlock $ b
+  decode = gapify . deconstruct 
   --- XXX 0 is ugly!
   encode = construct 0 . unGapify 
   encodedSize = getSize . umeasure
@@ -349,6 +349,7 @@ instance BitVector EBlock where
   queryrank (EBlock _ b) i = queryrank (readEliass b) i
   select    (EBlock _ b) i = select (readEliass b) i
   querysize = querysize . readEliass . unEBlock
+  deconstruct = unGapify . readEliass . unEBlock
   
 instance DynamicBitVector EBlock where
   -- XXX these recalculate the measure
@@ -363,6 +364,8 @@ instance BitVector NBlock where
   queryrank (NBlock _ b) i = queryrank (readNibbles b) i
   select    (NBlock _ b) i = select (readNibbles b) i
   querysize = querysize . readEliass . unNBlock
+  deconstruct = unGapify . readEliass . unNBlock
+
   
 instance DynamicBitVector NBlock where
   -- XXX these recalculate the measure
@@ -379,4 +382,5 @@ instance BitVector UBlock where
   query b i = query (decode b) i
   queryrank b i = queryrank (decode b) i
   select b i = select (decode b) i
-  querysize = querysize . decode
+  querysize = getSize . umeasure
+  deconstruct b = take (querysize b) . blockToBits . unUBlock $ b

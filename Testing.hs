@@ -25,6 +25,9 @@ meta_bitvector mk f fList (NonEmpty xs) =
       b = f vector i
     in (a==b)
   
+test_construct :: BitVector a => ([Bool] -> a) -> NonEmptyList Bool -> Property
+test_construct mk (NonEmpty bs) = property $ bs == deconstruct (mk bs)
+
 test_query :: BitVector a => ([Bool] -> a) -> NonEmptyList Bool -> Property
 test_query mk = meta_bitvector mk query query
 
@@ -41,8 +44,10 @@ test_querysize mk (NonEmpty xs) =
 test_select :: BitVector a => ([Bool] -> a) -> NonEmptyList Bool -> Property
 test_select mk = meta_bitvector mk select select
 
-test_BitVector a = test_query a
-                   .&&. test_queryrank a
-                   .&&. test_queryrank0 a
-                   .&&. test_querysize a
-                   .&&. test_select a
+test_BitVector a = 
+  test_construct a  .&&.
+  test_query a      .&&.
+  test_queryrank a  .&&.
+  test_queryrank0 a .&&.
+  test_querysize a  .&&.
+  test_select a

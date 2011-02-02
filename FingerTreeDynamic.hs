@@ -19,7 +19,7 @@ import Prelude hiding (reverse,null)
 import Data.FingerTree
 import Data.Array.Unboxed (UArray,(!),bounds,elems)
 
-data FDynamic a = (Measured SizeRank a, BitVector a, Encoded a) =>
+data FDynamic a = (Measured SizeRank a, BitVector a) =>
                   FDynamic {blocksize :: Int,
                             unwrap :: FingerTree SizeRank a}
 
@@ -50,8 +50,10 @@ instance BitVector (FDynamic UBlock) where
   construct = fDynamic
   querysize = _size
   
+{-
 instance DynamicBitVector (FDynamic UBlock) where
   insert = _insert
+-}
 
 instance BitVector (FDynamic SmallBlock) where
   query = _query
@@ -72,7 +74,7 @@ build size xs = fromList $ unfoldr go xs
                 in block `seq` Just (block, drop size xs)
 
         
-fDynamic :: (BitVector a, Encoded a, Measured SizeRank a) =>
+fDynamic :: (BitVector a, Measured SizeRank a) =>
             Int -> [Bool] -> FDynamic a
 fDynamic n xs = FDynamic blocksize (build blocksize xs)
   where blocksize = roundUpToPowerOf 2 $ 4 * ilog2 n
@@ -84,7 +86,7 @@ fingerTreeToList f
                 in a : fingerTreeToList as
 
 ftoList :: FDynamic a -> [Bool]
-ftoList (FDynamic _ f) = concatMap (unGapify.decode) $ fingerTreeToList f
+ftoList (FDynamic _ f) = concatMap deconstruct $ fingerTreeToList f
 
 blocks (FDynamic _ f) = map decode $ fingerTreeToList f
 
@@ -132,7 +134,7 @@ balanceAt lim elem after
   | otherwise
     = elem <| after
 
-_insert :: (Measured SizeRank a, Encoded a) => FDynamic a -> Int -> Bool -> FDynamic a
+_insert :: (DynamicBitVector a, Measured SizeRank a, Encoded a) => FDynamic a -> Int -> Bool -> FDynamic a
 _insert (FDynamic size f) i val =
   FDynamic size (before >< balanced)
     where (before', after') = split (index i) f
@@ -147,10 +149,9 @@ _insert (FDynamic size f) i val =
           
           (SizeRank s _) = measure before
           i' = i-s
-          gaps = decode block
-          newgaps = insert gaps i' val
+          newblock = insert block i' val
           
-          balanced = balanceAt size (encode newgaps) after
+          balanced = balanceAt size newblock after
 
 proto_insert f =
   forAll (chooseFIndex f) $ \i ->
@@ -163,7 +164,7 @@ prop_insert_n = proto_insert
 
 -- TEST INFRA
         
-arbitrary_impl :: (BitVector a, Encoded a, Measured SizeRank a) => Gen (FDynamic a)
+arbitrary_impl :: (BitVector a, Measured SizeRank a) => Gen (FDynamic a)
 arbitrary_impl = do NonEmpty xs <- arbitrary
                     len <- choose (1,2^32)
                     return $ fDynamic len xs
