@@ -30,6 +30,8 @@ data Code = Code {codelength :: !Word8, code :: !Word64}
 instance Eq Code where
   a == b = codelength a == codelength b && getCode a == getCode b
 
+codelengthG = fromIntegral . codelength
+
 getCode (Code len code) = code .&. ones (fromIntegral len)
 
 instance Show Code where
@@ -37,21 +39,48 @@ instance Show Code where
 
 codeToBits :: Code -> [Bool]
 codeToBits (Code len code) =
-  map (testBit code) [fromIntegral len-1,fromIntegral len-2..0]
+  map (testBit code) [0..fromIntegral len-1]
     
+bitsToCode :: [Bool] -> Code
+bitsToCode bs = Code (fromIntegral len) w
+  where len = length bs
+        w = fromIntegral . unbitify $ bs
+        
+prop_codeToBits =
+  forAll (choose (0,63)) $ \siz ->
+  forAll (vector siz) $ \bits ->
+  codeToBits (bitsToCode bits) == bits
+  
 (+++) :: Code -> Code -> Code
 a +++ b
   | codelength a + codelength b > 64 = error "out of space"
   | otherwise = Code
                 (codelength a + codelength b)
-                (shiftL (getCode a) (fromIntegral $ codelength b)
-                 .|. getCode b)
+                (shiftL (getCode b) (fromIntegral $ codelength a)
+                 .|. getCode a)
                 
+takeCode :: Int -> Code -> Code
+takeCode a (Code l c) = Code (fromIntegral a `min` l) (c .&. ones a)
+
+minus' :: (Ord a, Num a) => a -> a -> a
+minus' x y | y>x       = 0
+           | otherwise = x-y
+dropCode a (Code l c) = Code (minus' l (fromIntegral a)) (c `shiftR` a)
+
 prop_plusplusplus :: Code -> Code -> Bool
 prop_plusplusplus a b 
   | codelength a + codelength b > 64 = True
   | otherwise = codeToBits (a+++b) == codeToBits a ++ codeToBits b
   
+prop_takeCode c = 
+  forAll (choose (0,70)) $ \n ->
+  codeToBits (takeCode n c) == take n (codeToBits c)
+  
+prop_dropCode c = 
+  forAll (choose (0,70)) $ \n ->
+  codeToBits (dropCode n c) == drop n (codeToBits c)
+
+                
 instance Arbitrary Code where
   arbitrary = do code <- fmap fromIntegral (arbitrary :: Gen Integer)
                  codelength <- fmap fromIntegral (choose (0,64) :: Gen Integer)
@@ -73,8 +102,21 @@ elias_encode (Gap i)
         ll = ilog2 l
         icode  = Code (fromIntegral $ l-1)  (fromIntegral i .&. ones (l-1))
         lcode  = Code (fromIntegral $ ll-1) (fromIntegral l .&. ones (ll-1))
-        llcode = Code (fromIntegral $ ll+1) (setBit 0 0)
-        code = llcode +++ lcode +++ icode
+        llcode = Code (fromIntegral $ ll) 0
+        one    = Code 1 1
+        code = llcode +++ one +++ lcode +++ icode
+        
+prop_elias_encode_0 =
+  elias_encode (Gap 0) == Code 1 1
+prop_elias_encode_1 =
+  elias_encode (Gap 1) == bitsToCode [False,True]
+prop_elias_encode_2 =
+  elias_encode (Gap 2) == bitsToCode [False,False,True,False,False]
+prop_elias_encode_17 =
+  elias_encode (Gap 17) == bitsToCode ([False,False,False,True]
+                                       ++[True,False]
+                                       ++[True,False,False,False])
+
         
 newtype Block = Block (UArray Int Word8)
 
@@ -90,7 +132,7 @@ instance Show Block where
 
 blockToBits :: Block -> [Bool]
 blockToBits (Block arr) = concatMap f (elems arr)
-  where f w = map (testBit w) [7,6..0]
+  where f w = map (testBit w) [0..7]
 
 bitLength :: Block -> Int
 bitLength (Block arr) = 8 * (snd (bounds arr) + 1)
@@ -106,18 +148,14 @@ writeCode arr index c =
      -- [64-length][nWrite][length-nWrite]
      -- => [64-nWrite][nWrite]
      -- => [bitIndex][nWrite][8-bitIndex-nWrite]
-     let length = codelength c
-         nWrite = min (8-bitIndex) (fromIntegral length)
-         shifted = 
-           shiftR (getCode c) (fromIntegral length-nWrite) 
-         toWrite = fromIntegral
-                   . flip shiftL (8-bitIndex-nWrite)
-                   $ shifted
+     let length = codelengthG c
+         nWrite = min (8-bitIndex) length
+         toWrite = fromIntegral . getCode $ takeCode nWrite c
+         shifted = toWrite `shiftL` bitIndex
      -- XXX overwriting doesn't work!
-     writeArray arr wordIndex (word .|. toWrite)
+     writeArray arr wordIndex (word .|. shifted)
      --trace (show ("XX",shifted,toWrite,wordIndex,bitIndex)) $
-     writeCode arr (index+nWrite)
-       (Code (length-fromIntegral nWrite) (code c))
+     writeCode arr (index+nWrite) (dropCode nWrite c)
      
 
 makeBlock :: [Code] -> Block
@@ -138,33 +176,29 @@ prop_makeBlock codes = bits `isPrefixOf` bits'
         bits' = blockToBits block
         bits = concatMap codeToBits codes
 
-putInto :: Word64 -> Word8 -> Int -> Word64
-putInto into word len = output
-  where shifted = shiftL (fromIntegral word) (len-8)
-        output = into .|. shifted
-                 
-prop_putInto = 
-  forAll (choose (0,63)) $ \i ->
-    putInto 0 1 (i+8) == shiftL 1 i
 
-readInto :: Block -> Int -> Int -> Word64 -> Word64
-readInto (Block arr) wordI len into = putInto into word len
-  where word = arr!wordI
+word8ToCode :: Word8 -> Code
+word8ToCode w = Code 8 (fromIntegral w)
+                 
+readPiece :: Block -> Int -> Code
+readPiece b@(Block arr) index = code
+  where (wordIndex,bitIndex) = index `divMod` 8
+        code = dropCode bitIndex $ word8ToCode (arr!wordIndex)
+                  
+prop_readPiece block =
+  forAll (choose (0,bitLength block-1)) $ \i ->
+    codeToBits (readPiece block i) `isPrefixOf` drop i (blockToBits block)
 
 readCode :: Block -> Int -> Int -> Code
-readCode b index len 
-  | realLen == 0 = Code 0 0
-  | otherwise    = Code (fromIntegral realLen) code
-  where realLen = min len (bitLength b - index)
-        (wordIndex,bitIndex) = index `divMod` 8
-        start = readInto b wordIndex (realLen+bitIndex) 0
-        nRead = min len (8-bitIndex)
-        len' = realLen-nRead
-        wordIndex' = wordIndex + 1
-        code = loop start wordIndex' len'
-        loop !w _ 0 = w
-        loop !w !wi !len = let len' = max 0 (len-8)
-                           in loop (readInto b wi len w) (wi+1) len'
+readCode b index len = loop (Code 0 0) index realLen
+  where 
+    realLen = min len (bitLength b - index)
+    loop c _     0   = c
+    loop c index len 
+          = let p = readPiece b index
+                c' = takeCode len p
+                l = codelengthG c'
+            in loop (c+++c') (index + l) (len - l)
        
 prop_readCode block =
   forAll (choose (0,bitLength block-1)) $ \i ->
@@ -176,29 +210,26 @@ prop_write_read_code :: Code -> Bool
 prop_write_read_code c =
   c == readCode (makeBlock [c]) 0 (fromIntegral $ codelength c)
   
-myLeadingZeros :: Code -> Maybe Int
-myLeadingZeros c = if getCode c == 0
-                   then Nothing
-                   else Just (fixedLeadingZeros (getCode c)
-                              - (64 - fromIntegral (codelength c)))
-
--- "bug": leadingZeros 0 === leadingZeros 1 === bitlength - 1
-fixedLeadingZeros :: ExtraBits a => a -> Int
-fixedLeadingZeros w@0 = bitSize w
-fixedLeadingZeros w = fromIntegral $ leadingZeros w
+myTrailingZeros :: Code -> Maybe Int
+myTrailingZeros c = if getCode c == 0
+                    then Nothing 
+                    else Just (fromIntegral $ trailingZeros (getCode c))
 
 readElias :: Block -> Int -> Maybe (Gap,Int)
 readElias b index =
   let code = (readCode b index 64)
-      len = fromIntegral $ codelength code
-  in case myLeadingZeros code
+  in case myTrailingZeros code
      of Nothing -> Nothing
         Just 0 -> Just (Gap 0,index+1)
         Just ll ->
-          let l = fromIntegral $ shiftR (getCode code) (len-2*ll)
-              almost = ones (l-1) .&. shiftR (getCode code) (len-(2*ll+l-1))
-              final = setBit almost (l-1)
-          in Just (Gap $ fromIntegral final, index+2*ll+l-1)
+          let lPart = dropCode (ll+1) code
+              lCode = takeCode (ll-1) lPart +++ Code 1 1
+              l = fromIntegral $ getCode lCode
+              xPart = dropCode (ll-1) lPart
+              almost = takeCode (l-1) xPart
+              final = almost +++ Code 1 1
+          in Just (Gap . fromIntegral . getCode $ final,
+                   index+2*ll+l-1)
     
     
 prop_read_write_elias = 
@@ -247,12 +278,7 @@ nibbleTerminatorCode :: Code
 nibbleTerminatorCode = Code 4 8
 
 nibble :: Block -> Int -> Int
-nibble (Block a) i = fromIntegral $
-                     let (wi,bi) = i `divMod` 8 
-                         w = a!wi
-                     in case bi of
-                       0 -> w `shiftR` 4
-                       4 -> w .&. ones 4
+nibble b i = fromIntegral $ getCode $ takeCode 4 $ readPiece b i
 
 readNibble :: Block -> Int -> Maybe (Gap,Int)
 readNibble b i = if nibble b i == 8
