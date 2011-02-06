@@ -6,6 +6,8 @@ module
   (Measured(..),
    Monoid(..),
    SizeRank(..),
+   Cached,
+   cached,
    index,
    rank,
    (+++))     
@@ -47,3 +49,19 @@ rank i = (>i).getRank
 
 (+++) :: Monoid a => a -> a -> a
 (+++) = mappend
+
+data Cached a v = Cached {cmeasure :: !a, unCached :: !v}
+instance Monoid a => Measured a (Cached a v) where
+  measure = cmeasure
+  
+cached :: Measured a v => v -> Cached a v
+cached x = Cached (measure x) x
+
+instance (BitVector a, Measured v a) => BitVector (Cached v a) where
+  construct l xs = cached $ construct l xs
+  deconstruct a = deconstruct (unCached a)
+  
+  querysize a = querysize (unCached a)
+  query a i = query (unCached a) i
+  queryrank a i = queryrank (unCached a) i
+  select a i = select (unCached a) i
