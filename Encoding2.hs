@@ -37,6 +37,8 @@ getCode (Code len code) = code .&. ones (fromIntegral len)
 instance Show Code where
   show (Code len code) = "Code " ++ show len ++ " " ++ showHex code ""
 
+emptyCode = Code 0 0
+
 codeToBits :: Code -> [Bool]
 codeToBits (Code len code) =
   map (testBit code) [0..fromIntegral len-1]
@@ -215,12 +217,11 @@ myTrailingZeros c = if getCode c == 0
                     then Nothing 
                     else Just (fromIntegral $ trailingZeros (getCode c))
 
-readElias :: Block -> Int -> Maybe (Gap,Int)
-readElias b index =
-  let code = (readCode b index 64)
-  in case myTrailingZeros code
+eliasDecode :: Code -> Maybe (Gap,Int)
+eliasDecode code = 
+  case myTrailingZeros code
      of Nothing -> Nothing
-        Just 0 -> Just (Gap 0,index+1)
+        Just 0 -> Just (Gap 0,1)
         Just ll ->
           let lPart = dropCode (ll+1) code
               lCode = takeCode (ll-1) lPart +++ Code 1 1
@@ -229,8 +230,13 @@ readElias b index =
               almost = takeCode (l-1) xPart
               final = almost +++ Code 1 1
           in Just (Gap . fromIntegral . getCode $ final,
-                   index+2*ll+l-1)
-    
+                   2*ll+l-1)
+
+readElias :: Block -> Int -> Maybe (Gap,Int)
+readElias b index = do 
+  let code = (readCode b index 64)
+  (gap, len) <- eliasDecode code
+  return (gap, index+len)
     
 prop_read_write_elias = 
   forAll (choose (0,8007199254740992)) $ \i -> 

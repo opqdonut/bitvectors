@@ -57,6 +57,9 @@ unGapify :: [Gap] -> [Bool]
 unGapify (Gap x:xs) =
   replicate x False ++ concatMap (\i -> True:replicate (unGap i) False) xs
 
+-- for unGapifying non-complete gap lists
+unGapify' gs = concatMap (\i -> replicate (unGap i) False ++ [True])
+
 concatGaps :: [Gap] -> [Gap] -> [Gap]
 concatGaps [Gap a] (Gap b:gs) = Gap (a+b) : gs
 concatGaps (a:as)  gs         = a : concatGaps as gs

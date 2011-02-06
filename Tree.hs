@@ -75,7 +75,7 @@ mkbal xs = t
 
 --- quick'n'dirty bitvector
 
-build :: (BitVector a, Encoded a, Measured SizeRank a) =>
+build :: (BitVector a, Measured SizeRank a) =>
          Int -> [Bool] -> Tree SizeRank a
 build size xs = mkbal $ unfoldr go xs
   where go [] = Nothing
@@ -83,7 +83,7 @@ build size xs = mkbal $ unfoldr go xs
         go xs = let block = construct size $ take size xs
                 in block `seq` Just (block, drop size xs)
 
-instance (Measured SizeRank a, Encoded a, BitVector a) =>
+instance (Measured SizeRank a, BitVector a) =>
          BitVector (Tree SizeRank a) where
   
   construct n xs = build blocksize xs
@@ -135,3 +135,17 @@ instance BitVector SmallDynamic where
   querysize (SmallDynamic t) = querysize t
 
 prop_SmallDynamic = test_BitVector (construct' :: [Bool] -> SmallDynamic)
+
+-----
+
+newtype SmallEliasDynamic = SmallEliasDynamic (Tree SizeRank SmallElias)
+
+instance BitVector SmallEliasDynamic where
+  
+  construct _ xs = SmallEliasDynamic . mkbal . smallElias $ xs
+  query (SmallEliasDynamic t) i = query t i          
+  queryrank (SmallEliasDynamic t) i = queryrank t i          
+  select (SmallEliasDynamic t) i = select t i
+  querysize (SmallEliasDynamic t) = querysize t
+
+prop_SmallEliasDynamic = test_BitVector (construct' :: [Bool] -> SmallEliasDynamic)

@@ -71,3 +71,53 @@ prop_query     = genList >>= meta_bitvector mk query query
 prop_queryrank = genList >>= meta_bitvector mk queryrank queryrank
 prop_select    = genList >>= meta_bitvector mk select select
 
+---- 
+
+newtype SmallElias = SmallElias Code
+  deriving Show
+newtype SmallNibble = SmallNibble Code
+
+packElias :: [Gap] -> [Code]
+packElias gs = go c cs
+  where (c:cs) = map elias_encode gs
+        go acc (x:xs)
+          | codelength acc + codelength x > 63  = (acc+++one) : go x xs
+          | otherwise = go (acc+++x) xs
+        go acc [] = [acc]
+        one = elias_encode (Gap 0)
+        
+smallElias :: [Bool] -> [SmallElias]
+smallElias = map SmallElias . packElias . gapify
+
+--prop_smallElias (NonEmpty bs) = gapify bs == concatMap  (smallElias bs)
+
+smallEliasToGaps :: SmallElias -> [Gap]
+smallEliasToGaps (SmallElias c) = loop c
+    where loop c = case eliasDecode c
+                   of Nothing -> []
+                      Just (g,len) -> g:loop (dropCode len c)
+                      
+instance Measured SizeRank SmallElias where
+  measure = measure . smallEliasToGaps
+                      
+instance BitVector SmallElias where
+  construct _ bs = s
+    where [s] = smallElias bs
+          
+  deconstruct = unGapify . smallEliasToGaps
+          
+  query s i = query (smallEliasToGaps s) i
+  queryrank s i = queryrank (smallEliasToGaps s) i
+  select s i = select (smallEliasToGaps s) i
+  querysize s = querysize (smallEliasToGaps s)
+
+
+genSmallElias = do
+  bs <- listOf1 arbitrary
+  return . head . smallElias $ bs
+  
+genSmallEliasList = fmap (NonEmpty . deconstruct) genSmallElias
+
+prop_query_SE     = genSmallEliasList >>= meta_bitvector mk query query
+prop_queryrank_SE = genSmallEliasList >>= meta_bitvector mk queryrank queryrank
+prop_select_SE    = genSmallEliasList >>= meta_bitvector mk select select
