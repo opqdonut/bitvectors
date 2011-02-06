@@ -21,5 +21,5 @@ plot '2011-02-06.dat' index 2 using 1:($3-$2) t 'elias',\
 set output 'dynamic2.tex';
 plot '2011-02-06.dat' i 6 u 1:($3-$2) t 't',\
      '' i 7 u 1:($3-$2) t 'sd',\
-     '' i 8 u 1:($3-$2) t 'sed',\	
+     '' i 8 u 1:($3-$2) t 'sed',\
      '' i 11 u 1:($3-$2) t 'dynfmi';
