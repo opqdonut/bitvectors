@@ -2,6 +2,7 @@ module Testing where
 
 import BitVector
 import Util
+import IO
 
 import Test.QuickCheck
 import Test.QuickCheck.Property
@@ -44,10 +45,13 @@ test_querysize mk (NonEmpty xs) =
 test_select :: BitVector a => ([Bool] -> a) -> NonEmptyList Bool -> Property
 test_select mk = meta_bitvector mk select select
 
+name string tst = whenFail (putStrLn string) tst
+
 test_BitVector a = 
-  test_construct a  .&&.
-  test_query a      .&&.
-  test_queryrank a  .&&.
-  test_queryrank0 a .&&.
-  test_querysize a  .&&.
-  test_select a
+  name "In test_construct:" (test_construct a) .&&.
+  name "In test_querysize:" (test_querysize a) .&&.  
+  name "In test_query:" (test_query a) .&&.
+  name "In test_queryrank:" (test_queryrank a) .&&.
+  name "In test_queryrank0:" (test_queryrank0 a) .&&.
+  name "In test_select:" (test_select a) 
+

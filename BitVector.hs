@@ -5,6 +5,7 @@
 module BitVector where
 
 import Util
+
 import Test.QuickCheck
 
 class BitVector a where
@@ -94,7 +95,8 @@ instance BitVector [Gap] where
             | gap>left  = ones
 
   select gaps index = loop 0 index gaps
-    where loop bits ones (Gap gap:gaps)
+    where loop _    _    [] = Nothing
+          loop bits ones (Gap gap:gaps)
             | ones>0  = loop (bits+gap+1) (ones-1) gaps
             | ones==0 = if null gaps
                         then Nothing
@@ -135,24 +137,9 @@ select' i xs = go 0 i xs
           go loc rank (False:xs) = go (loc+1) rank xs
           go _   _    []         = Nothing
 
-prop_select' :: [Bool] -> Int -> Bool
-prop_select' xs i = case select' i xs of
-                      Nothing -> i >= rank' xs || i < 0
-                      Just loc -> i == rank' (take loc xs)
-
 prop_insert_query :: [Bool] -> Property
 prop_insert_query xs =
   forAll (choose (0,length xs)) $ \i ->
     forAll (choose (False,True)) $ \val ->
       val == query (insert xs i val) i
       
-prop_queryrank_bs :: NonEmptyList Bool -> Property
-prop_queryrank_bs (NonEmpty xs) =
-  forAll (chooseIndex xs) $ \i ->
-    queryrank xs i == rank' (take (i+1) xs)
-    
-    
-prop_queryrank0 :: NonEmptyList Bool -> Property
-prop_queryrank0 (NonEmpty xs) =
-  forAll (chooseIndex xs) $ \i ->
-    queryrank0 xs i == count (==False) (take (i+1) xs)

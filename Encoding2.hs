@@ -24,6 +24,8 @@ import Data.Monoid
 import Util
 import BitVector
 
+import Testing
+
 -- A Code is a smallish chunk of bits
 data Code = Code {codelength :: !Word8, code :: !Word64}
 
@@ -395,8 +397,8 @@ instance BitVector NBlock where
   query     (NBlock _ b) i = query (readNibbles b) i
   queryrank (NBlock _ b) i = queryrank (readNibbles b) i
   select    (NBlock _ b) i = select (readNibbles b) i
-  querysize = querysize . readEliass . unNBlock
-  deconstruct = unGapify . readEliass . unNBlock
+  querysize = querysize . readNibbles . unNBlock
+  deconstruct = unGapify . readNibbles . unNBlock
 
   
 instance DynamicBitVector NBlock where
@@ -410,9 +412,18 @@ instance BitVector UBlock where
   construct _ xs = UBlock (measure xs) . makeBlock . map f . cut 64 $ xs
     where
       f xs = Code (fromIntegral $ length xs)
-                  (fromIntegral . unbitify . reverse $ xs)
+                  (fromIntegral . unbitify $ xs)
   query b i = query (decode b) i
   queryrank b i = queryrank (decode b) i
   select b i = select (decode b) i
   querysize = getSize . umeasure
   deconstruct b = take (querysize b) . blockToBits . unUBlock $ b
+                  
+prop_construct_UBlock (NonEmpty bs) = bs == deconstruct (construct' bs :: UBlock)  
+                                      
+-- for lack of a better place
+prop_gaps = test_BitVector gapify
+                                      
+prop_EBlock = test_BitVector (construct' :: [Bool] -> EBlock)
+prop_NBlock = test_BitVector (construct' :: [Bool] -> NBlock)
+prop_UBlock = test_BitVector (construct' :: [Bool] -> UBlock)

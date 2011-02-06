@@ -62,6 +62,13 @@ instance BitVector (FDynamic SmallBlock) where
   construct _ xs = FDynamic 64 (build 64 xs)
   querysize = _size
 
+instance BitVector (FDynamic SmallElias) where
+  query = _query
+  queryrank = _queryrank
+  select = _select
+  construct _ xs = FDynamic 0 . fromList . smallElias $ xs
+  querysize = _size
+
 instance Show (FDynamic a) where
   show f = "(FDynamic " ++ show (blocksize f) ++ " " ++ show (ftoList f) ++ ")"
 
@@ -197,3 +204,6 @@ prop_fd_NBlock = test_BitVector (construct' :: [Bool] -> FDynamic NBlock)
 prop_fd_EBlock = test_BitVector (construct' :: [Bool] -> FDynamic EBlock)
 prop_fd_SmallBlock =
   test_BitVector (construct' :: [Bool] -> FDynamic SmallBlock)
+  
+prop_fd_SmallElias =
+  test_BitVector (construct' :: [Bool] -> FDynamic SmallElias)
