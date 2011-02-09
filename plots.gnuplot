@@ -2,6 +2,9 @@ set key top left
 set terminal latex
 set log x
 
+set xlabel 'bits'
+set ylabel 't/s'
+
 set output 'statics.tex';
 plot\
      '2011-02-06-3.dat' i 1 u 1:($3-$2) t 's2',\

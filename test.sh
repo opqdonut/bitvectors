@@ -1,5 +1,5 @@
 #!/bin/sh
-SIZES="5000 10000 20000 40000 80000 160000 320000 640000 1280000 2560000 5120000"
+SIZES="1 2 4 8 16 32 64 128 256 512"
 QUERIES=100000
 
 REPEATS=${1:-1}
@@ -7,8 +7,9 @@ REPEATS=${1:-1}
 function test {
     for size in $SIZES; do
 	for j in $(seq $REPEATS); do
-	    FIRST=$(/usr/bin/time -f " %U" $1 $size 100 2>&1 >/dev/null)
-	    SECOND=$(/usr/bin/time -f " %U" $1 $size $QUERIES 2>&1 >/dev/null)
+            file="data/f32s1-${size}k"
+	    FIRST=$(/usr/bin/time -f " %U" $1 $file 100 2>&1 >/dev/null)
+	    SECOND=$(/usr/bin/time -f " %U" $1 $file $QUERIES 2>&1 >/dev/null)
 	    echo $size $FIRST $SECOND
 	done
     done

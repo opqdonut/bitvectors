@@ -45,7 +45,7 @@ Cabal-version:       >=1.2
 
 Executable Test
   Main-is: Test.hs
-  Build-depends: haskell98, base>=4, fingertree, QuickCheck, bits-extras, array, data-memocombinators, containers, parallel
+  Build-depends: haskell98, base>=4, fingertree, QuickCheck, bits-extras, array, data-memocombinators, containers, parallel, bytestring
   
   -- Modules not exported by this package.
   -- Other-modules:       
@@ -53,3 +53,6 @@ Executable Test
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
   
+Executable Generate
+  Main-is: Generate.hs
+  Build-depends: haskell98, base>=4, bytestring, random

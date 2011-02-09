@@ -66,10 +66,9 @@ a +++ b
 takeCode :: Int -> Code -> Code
 takeCode a (Code l c) = Code (fromIntegral a `min` l) (c .&. ones a)
 
-minus' :: (Ord a, Num a) => a -> a -> a
-minus' x y | y>x       = 0
-           | otherwise = x-y
-dropCode a (Code l c) = Code (minus' l (fromIntegral a)) (c `shiftR` a)
+dropCode a (Code l c) 
+  | a > fromIntegral l  = Code 0 0
+  | otherwise =  Code (l-(fromIntegral a)) (c `shiftR` a)
 
 prop_plusplusplus :: Code -> Code -> Bool
 prop_plusplusplus a b 
@@ -122,6 +121,7 @@ prop_elias_encode_17 =
                                        ++[True,False,False,False])
 
         
+-- XXX stores bounds as Int, maybe switch to UArray Word8 Word8?
 newtype Block = Block (UArray Int Word8)
 
 instance Arbitrary Block where

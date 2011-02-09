@@ -9,8 +9,8 @@ import Tree (Dynamic,SmallDynamic,SmallEliasDynamic)
 
 import SmallBlock
 
-import Prelude 
-
+import qualified Data.ByteString as B
+import Data.Char
 import System.Environment (getArgs)
 import Data.Array.Unboxed
 import Random
@@ -23,20 +23,24 @@ gen2 n k = map f . take n $ randoms (mkStdGen 0)
     f :: Int -> Bool
     f a = a `mod` k == 0
   
-
+inputFromFile name = do
+  d <- B.readFile name
+  return $ concatMap bitify (B.unpack d)
 
 main = do
 
-  s:n':k':_ <- getArgs
+  s:filename:k':_ <- getArgs
 
-  let n = read n'
-      k = read k'
+  let k = read k'
 
   --let input = take n $ gen2 37
-  let input0 = gen2 1024 37
-  let input = take n $ cycle input0
+  --let input0 = gen2 1024 37
+  --let input = take n $ cycle input0
   
-  print (s,n,k)
+  input <- inputFromFile filename
+  let n = length input
+  
+  print (s,filename,n,k)
 
   case s of --"so" -> test (staticVector_ord n input) n k
             "sg" -> test (staticVector_gap n input) n k
