@@ -81,26 +81,23 @@ instance BitVector [Gap] where
   query gaps index = loop index gaps
     where loop left (Gap gap:gaps)
             | gap<left  = loop (left-gap-1) gaps
-            | gap==left = if null gaps
-                          then error "Query past end"
-                          else True
+            | gap==left && not (null gaps) = True
             | gap>left  = False
+            | otherwise = error "Query past end"
 
   queryrank gaps index = loop index 0 gaps
     where loop left ones (Gap gap:gaps)
             | gap<left  = loop (left-gap-1) (ones+1) gaps
-            | gap==left = if null gaps
-                          then error "Rank past end"
-                          else (ones+1)
+            | gap==left && not (null gaps) = ones+1
             | gap>left  = ones
+            | otherwise = error "Rank past end"
 
   select gaps index = loop 0 index gaps
     where loop _    _    [] = Nothing
           loop bits ones (Gap gap:gaps)
             | ones>0  = loop (bits+gap+1) (ones-1) gaps
-            | ones==0 = if null gaps
-                        then Nothing
-                        else Just (bits+gap)
+            | ones==0 && not (null gaps) = Just (bits+gap)
+            | otherwise                  = Nothing
                              
   deconstruct = unGapify
 
