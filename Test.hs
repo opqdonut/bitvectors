@@ -25,7 +25,7 @@ gen2 n k = map f . take n $ randoms (mkStdGen 0)
   
 inputFromFile name = do
   d <- B.readFile name
-  return $ concatMap bitify (B.unpack d)
+  return $ concatMap (pad 8.bitify) (B.unpack d)
 
 main = do
 
