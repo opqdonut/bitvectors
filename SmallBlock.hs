@@ -73,9 +73,12 @@ prop_select    = genList >>= meta_bitvector mk select select
 
 ---- 
 
-newtype SmallElias = SmallElias Code
+
+-- XXX newtype SmallElias = SmallElias Word64
+
+newtype SmallElias = SmallElias Word64
   deriving Show
-newtype SmallNibble = SmallNibble Code
+--newtype SmallNibble = SmallNibble Code
 
 packElias :: [Gap] -> [Code]
 packElias gs = go c cs
@@ -87,12 +90,12 @@ packElias gs = go c cs
         one = elias_encode (Gap 0)
         
 smallElias :: [Bool] -> [SmallElias]
-smallElias = map SmallElias . packElias . gapify
+smallElias = map (SmallElias . getCode) . packElias . gapify
 
 --prop_smallElias (NonEmpty bs) = gapify bs == concatMap  (smallElias bs)
 
 smallEliasToGaps :: SmallElias -> [Gap]
-smallEliasToGaps (SmallElias c) = loop c
+smallEliasToGaps (SmallElias c) = loop (Code 64 c)
     where loop c = case eliasDecode c
                    of Nothing -> []
                       Just (g,len) -> g:loop (dropCode len c)
