@@ -31,7 +31,7 @@ instance Measured SizeRank Bool where
     measure True  = SizeRank 1 1
     measure False = SizeRank 1 0
 instance Measured SizeRank [Bool] where
-  measure xs = SizeRank (length xs) (rank' xs)
+  measure xs = mconcat (map measure xs)
 
 instance Measured SizeRank Gap where
   measure (Gap gap) = SizeRank (gap+1) 1
