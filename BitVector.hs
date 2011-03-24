@@ -55,6 +55,7 @@ gapify xs = loop xs 0
         loop (False:xs) acc = loop xs (acc+1)
 
 unGapify :: [Gap] -> [Bool]
+unGapify [] = [] -- XXX this isn't really that well-defined
 unGapify (Gap x:xs) =
   replicate x False ++ concatMap (\i -> True:replicate (unGap i) False) xs
 

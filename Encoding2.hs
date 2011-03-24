@@ -175,7 +175,7 @@ makeBlock codes = Block array
                    return arr
 
 makeBlocks :: Int -> Code -> [Code] -> [Block]
-makeBlocks blocksize special cs = go specialLen [] cs
+makeBlocks blocksize special cs = go 0 [] cs
   where go :: Int -> [Code] -> [Code] -> [Block]
         go acc coll (x:xs)
           | acc + codelengthG x > blocksize =
@@ -291,33 +291,34 @@ eliasEncode = gapEncode_ elias_encode (Code 0 0)
 
 nibble_encode :: Gap -> Code
 nibble_encode (Gap i)
-  | i<2^3 = Code 4 (fromIntegral i)
+  | i<2^3 = Code 3 (fromIntegral i) +++ Code 1 1
   | otherwise = go base (shiftR (fromIntegral i) 3)
-    where base = Code 4 (fromIntegral i .&. ones 3)
-          snip i = Code 4 (setBit 0 3 .|. i .&. ones 3)
+    where base = Code 3 (fromIntegral i) +++ Code 1 1
+          snip i = Code 3 i +++ Code 1 0
           go acc 0 = acc 
           go acc i = go (snip i +++ acc) (shiftR i 3)
 
 nibbleTerminator :: Int
-nibbleTerminator = 8
+nibbleTerminator = 0
 
 nibbleTerminatorCode :: Code
-nibbleTerminatorCode = Code 4 8
+nibbleTerminatorCode = Code 4 0
 
 nibble :: Block -> Int -> Int
 nibble b i = fromIntegral $ getCode $ takeCode 4 $ readPiece b i
 
 readNibble :: Block -> Int -> Maybe (Gap,Int)
-readNibble b i = if nibble b i == nibbleTerminator
-                 then Nothing
-                 else loop 0 i
-  where loop !acc !i =
-          let n = nibble b i
-              value = n .&. ones 3
-              acc' = (acc `shiftL` 3) .|. value
-          in case testBit n 3 of
-            False -> Just (Gap acc',i+4)
-            True -> loop acc' (i+4)
+readNibble b i 
+  | i >= bitLength b = Nothing
+  | nibble b i == nibbleTerminator = Nothing
+  | otherwise = loop 0 i
+    where loop !acc !i =
+            let n = nibble b i
+                value = n .&. ones 3
+                acc' = (acc `shiftL` 3) .|. value
+            in case testBit n 3 of
+              True -> Just (Gap acc',i+4)
+              False -> loop acc' (i+4)
             
 prop_nibble = 
   forAll (choose (0,2^30)) $ \i ->
@@ -348,10 +349,8 @@ elias_decode (Code length code) = if ll == 0 then 0 else i
 
 -----
 
-data EBlock = EBlock {emeasure :: !SizeRank,
-                      unEBlock :: !Block}
-data NBlock = NBlock {nmeasure :: !SizeRank,
-                      unNBlock :: !Block}
+newtype EBlock = EBlock {unEBlock :: Block}
+newtype NBlock = NBlock {unNBlock :: Block}
 data UBlock = UBlock {umeasure :: !SizeRank,
                       unUBlock :: !Block}
 
@@ -372,25 +371,22 @@ class Encoded a where
 
 instance Encoded EBlock where
   decode = readEliass . unEBlock
-  encode g = EBlock (measure g) . makeBlock . eliasEncode $ g
+  encode g = EBlock . makeBlock . eliasEncode $ g
   
-  encodeMany blocksize gs = map f blocks
+  encodeMany blocksize gs = map EBlock blocks
     where blocks = makeBlocks blocksize (elias_encode (Gap 0)) codes
           codes = eliasEncode gs
-          f b = EBlock (measure $ readEliass b) b
   
   encodedSize = bitLength . unEBlock
   
 instance Encoded NBlock where
   decode = readNibbles . unNBlock
-  encode g = NBlock (measure g) . makeBlock . nibbleEncode $ g
+  encode g = NBlock . makeBlock . nibbleEncode $ g
   
-  encodeMany blocksize gs = map f blocks
+  encodeMany blocksize gs = map NBlock blocks
     where blocks = makeBlocks blocksize special codes
-          codes = nibbleEncode gs ++ [nibbleTerminatorCode]
-          --- XXX this takes quite a bit of space...
-          special = nibble_encode (Gap 0) +++ nibbleTerminatorCode
-          f b = NBlock (measure $ readNibbles b) b
+          codes = nibbleEncode gs
+          special = nibble_encode (Gap 0)
   
   encodedSize = bitLength . unNBlock
   
@@ -403,10 +399,10 @@ instance Encoded UBlock where
   encodeMany blocksize gs = map construct' $ cut blocksize $ unGapify gs
       
 instance Measured SizeRank EBlock where
-  measure = emeasure
+  measure = measure . readEliass . unEBlock
 
 instance Measured SizeRank NBlock where
-  measure = nmeasure
+  measure = measure . readNibbles . unNBlock
          
 --- XXX could be more efficient
 instance Measured SizeRank UBlock where
@@ -416,33 +412,33 @@ instance Measured SizeRank UBlock where
 
 instance BitVector EBlock where
   construct _ = encode . gapify
-  query     (EBlock _ b) i = query (readEliass b) i
-  queryrank (EBlock _ b) i = queryrank (readEliass b) i
-  select    (EBlock _ b) i = select (readEliass b) i
+  query     (EBlock b) i = query (readEliass b) i
+  queryrank (EBlock b) i = queryrank (readEliass b) i
+  select    (EBlock b) i = select (readEliass b) i
   querysize = querysize . readEliass . unEBlock
   deconstruct = unGapify . readEliass . unEBlock
   
 instance DynamicBitVector EBlock where
   -- XXX these recalculate the measure
-  insert (EBlock _ b) i val = encode newGaps
+  insert (EBlock b) i val = encode newGaps
     where newGaps = insert (readEliass b) i val
-  delete (EBlock _ b) i = encode newGaps
+  delete (EBlock b) i = encode newGaps
     where newGaps = delete (readEliass b) i
 
 instance BitVector NBlock where
   construct _ = encode . gapify
-  query     (NBlock _ b) i = query (readNibbles b) i
-  queryrank (NBlock _ b) i = queryrank (readNibbles b) i
-  select    (NBlock _ b) i = select (readNibbles b) i
+  query     (NBlock b) i = query (readNibbles b) i
+  queryrank (NBlock b) i = queryrank (readNibbles b) i
+  select    (NBlock b) i = select (readNibbles b) i
   querysize = querysize . readNibbles . unNBlock
   deconstruct = unGapify . readNibbles . unNBlock
 
   
 instance DynamicBitVector NBlock where
   -- XXX these recalculate the measure
-  insert (NBlock _ b) i val = encode newGaps
+  insert (NBlock b) i val = encode newGaps
     where newGaps = insert (readNibbles b) i val
-  delete (NBlock _ b) i = encode newGaps
+  delete (NBlock b) i = encode newGaps
     where newGaps = delete (readNibbles b) i
   
 instance BitVector UBlock where

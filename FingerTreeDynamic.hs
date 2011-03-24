@@ -21,7 +21,7 @@ import Data.Array.Unboxed (UArray,(!),bounds,elems)
 
 data FDynamic a = (Measured SizeRank a, BitVector a) =>
                   FDynamic {blocksize :: Int,
-                            unwrap :: FingerTree SizeRank a}
+                            unwrap :: FingerTree SizeRank (Cached SizeRank a)}
 
 instance BitVector (FDynamic EBlock) where
   query = _query
@@ -62,9 +62,7 @@ instance BitVector (FDynamic SmallBlock) where
   construct _ xs = FDynamic 64 (build 64 xs)
   querysize = _size
 
-type CSmallElias = Cached SizeRank SmallElias
-
-instance BitVector (FDynamic CSmallElias) where
+instance BitVector (FDynamic SmallElias) where
   query = _query
   queryrank = _queryrank
   select = _select
@@ -85,7 +83,7 @@ build size xs = fromList $ unfoldr go xs
         
 fDynamic :: (Encoded a, BitVector a, Measured SizeRank a) =>
             Int -> [Bool] -> FDynamic a
-fDynamic n xs = FDynamic blocksize . fromList . encodeMany blocksize $ gapify xs
+fDynamic n xs = FDynamic blocksize . fromList . map cached . encodeMany blocksize $ gapify xs
   where blocksize = max
                     (roundUpToMultipleOf 8 $ 2 * ilog2 n)
                     16
@@ -112,7 +110,7 @@ find (FDynamic _ f) p =
   let (before,after) = {-# SCC "split-p-f" #-} split p f
       m = {-# SCC "split-measure" #-} measure before
   in case viewl after of      
-    elem :< _ -> Just (m, elem)
+    elem :< _ -> Just (m, unCached elem)
     EmptyL    -> Nothing
      
 
@@ -132,18 +130,18 @@ _select f i = do
   fmap (+s) $ select block (i-r)
   
 balanceAt :: (Measured SizeRank a, Encoded a) =>
-             Int -> a -> FingerTree SizeRank a -> FingerTree SizeRank a
+             Int -> a -> FingerTree SizeRank (Cached SizeRank a) -> FingerTree SizeRank (Cached SizeRank a)
 balanceAt lim elem after
   --- XXX the order of the cases is important!
   | encodedSize elem > 2*lim
     --- XXX! might produce elems that are too small!
-    = let (a,b) = cleave elem in a <| b <| after
+    = let (a,b) = cleave elem in cached a <| cached b <| after
   | null after
-    = singleton elem
+    = singleton (cached elem)
   | encodedSize elem < lim
-    = let (a :< after') = viewl after in (combine elem a <| after')
+    = let (a :< after') = viewl after in (cached (combine elem (unCached a)) <| after')
   | otherwise
-    = elem <| after
+    = cached elem <| after
 
 _insert :: (DynamicBitVector a, Measured SizeRank a, Encoded a) => FDynamic a -> Int -> Bool -> FDynamic a
 _insert (FDynamic size f) i val =
@@ -152,10 +150,10 @@ _insert (FDynamic size f) i val =
           
           (before, block, after) =
             case viewl after' of
-              b :< bs -> (before', b, bs)
+              b :< bs -> (before', unCached b, bs)
               EmptyL ->
                 case viewr before' of
-                  bs :> b -> (bs, b, empty)
+                  bs :> b -> (bs, unCached b, empty)
                   EmptyR -> error "_insert: This shouldn't happen!"
           
           (SizeRank s _) = measure before
@@ -210,5 +208,5 @@ prop_fd_EBlock = test_BitVector (construct' :: [Bool] -> FDynamic EBlock)
 -- XXX broken cuz smallblock doesn't store it's length anymore...
 --prop_fd_SmallBlock = test_BitVector (construct' :: [Bool] -> FDynamic SmallBlock)
   
-prop_fd_CSmallElias =
-  test_BitVector (construct' :: [Bool] -> FDynamic CSmallElias)
+prop_fd_SmallElias =
+  test_BitVector (construct' :: [Bool] -> FDynamic SmallElias)

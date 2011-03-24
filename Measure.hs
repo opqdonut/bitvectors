@@ -6,7 +6,7 @@ module
   (Measured(..),
    Monoid(..),
    SizeRank(..),
-   Cached,
+   Cached(..),
    cached,
    index,
    rank,
