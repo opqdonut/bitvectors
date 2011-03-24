@@ -51,6 +51,8 @@ roundUpToPowerOf k x = go 1
     where go acc | acc >= x  = acc
                  | otherwise = go (k*acc)
 
+roundUpToMultipleOf k x = k * (x `mydiv` k)
+
 infixl 7 `mydiv`
 mydiv a b = let (x,y) = quotRem a b in
             if y==0 then x else x+1

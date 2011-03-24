@@ -174,6 +174,22 @@ makeBlock codes = Block array
                    loop codes 0
                    return arr
 
+makeBlocks :: Int -> Code -> [Code] -> [Block]
+makeBlocks blocksize special cs = go specialLen [] cs
+  where go :: Int -> [Code] -> [Code] -> [Block]
+        go acc coll (x:xs)
+          | acc + codelengthG x > blocksize  = (makeBlock $ reverse (special:coll)) : go specialLen [] (x:xs)
+          | otherwise = go (acc+codelengthG x) (x:coll) xs
+        go _ coll [] = [makeBlock $ reverse (special:coll)]
+        specialLen = codelengthG special
+
+prop_makeBlocks :: [Code] -> Property
+prop_makeBlocks cs = forAll (choose (1,11)) $ \b ->
+  let bs = 64*b
+      check b = bitLength b <= bs
+      c = Code 0 0
+  in all check (makeBlocks bs c cs)
+
 prop_makeBlock :: [Code] -> Bool
 prop_makeBlock codes = bits `isPrefixOf` bits'
   where block = makeBlock codes
@@ -341,6 +357,8 @@ class Encoded a where
   encode :: [Gap] -> a
   encodedSize :: a -> Int
   
+  encodeMany :: Int -> [Gap] -> [a]
+  
   combine :: a -> a -> a
   combine x y = encode $ concatGaps (decode x) (decode y)
   
@@ -352,6 +370,12 @@ class Encoded a where
 instance Encoded EBlock where
   decode = readEliass . unEBlock
   encode g = EBlock (measure g) . makeBlock . eliasEncode $ g
+  
+  encodeMany blocksize gs = map f blocks
+    where blocks = makeBlocks blocksize (elias_encode (Gap 0)) codes
+          codes = eliasEncode gs
+          f b = EBlock (measure $ readEliass b) b
+  
   encodedSize = bitLength . unEBlock
   
 instance Encoded NBlock where
