@@ -92,14 +92,14 @@ packElias gs = go c cs
 smallElias :: [Bool] -> [SmallElias]
 smallElias = map (SmallElias . getCode) . packElias . gapify
 
---prop_smallElias (NonEmpty bs) = gapify bs == concatMap  (smallElias bs)
-
 smallEliasToGaps :: SmallElias -> [Gap]
 smallEliasToGaps (SmallElias c) = loop (Code 64 c)
     where loop c = case eliasDecode c
                    of Nothing -> []
                       Just (g,len) -> g:loop (dropCode len c)
                       
+prop_smallElias (NonEmpty bs) = bs == concatMap (unGapify.smallEliasToGaps) (smallElias bs)
+
 instance Measured SizeRank SmallElias where
   measure = measure . smallEliasToGaps
                       
