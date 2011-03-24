@@ -83,10 +83,10 @@ build size xs = fromList $ unfoldr go xs
                 in block `seq` Just (block, drop size xs)
 
         
-fDynamic :: (BitVector a, Measured SizeRank a) =>
+fDynamic :: (Encoded a, BitVector a, Measured SizeRank a) =>
             Int -> [Bool] -> FDynamic a
-fDynamic n xs = FDynamic blocksize (build blocksize xs)
-  where blocksize = roundUpToPowerOf 2 $ 4 * ilog2 n
+fDynamic n xs = FDynamic blocksize . fromList . encodeMany blocksize $ gapify xs
+  where blocksize = roundUpToMultipleOf 8 $ 2 * ilog2 n
         
 fingerTreeToList :: Measured v a => FingerTree v a -> [a]
 fingerTreeToList f
@@ -173,7 +173,7 @@ prop_insert_n = proto_insert
 
 -- TEST INFRA
         
-arbitrary_impl :: (BitVector a, Measured SizeRank a) => Gen (FDynamic a)
+arbitrary_impl :: (Encoded a, BitVector a, Measured SizeRank a) => Gen (FDynamic a)
 arbitrary_impl = do NonEmpty xs <- arbitrary
                     len <- choose (1,2^32)
                     return $ fDynamic len xs

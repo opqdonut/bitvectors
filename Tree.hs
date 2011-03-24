@@ -104,9 +104,9 @@ instance (Measured SizeRank a, BitVector a) =>
 
 newtype Dynamic = Dynamic (Tree SizeRank EBlock)
 
-mkDynamic n xs = Dynamic (build blocksize xs) --(mkbal blocks)
-  where blocksize = roundUpToMultipleOf 64 $ 4 * ilog2 n
-        --blocks = encodeMany blocksize $ gapify xs
+mkDynamic n xs = Dynamic (mkbal blocks)
+  where blocksize = roundUpToMultipleOf 8 $ 2 * ilog2 n
+        blocks = encodeMany blocksize $ gapify xs
 
 instance BitVector Dynamic where
   
