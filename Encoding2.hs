@@ -387,7 +387,7 @@ instance Encoded NBlock where
   
   encodeMany blocksize gs = map f blocks
     where blocks = makeBlocks blocksize special codes
-          codes = nibbleEncode gs
+          codes = nibbleEncode gs ++ [nibbleTerminatorCode]
           --- XXX this takes quite a bit of space...
           special = nibble_encode (Gap 0) +++ nibbleTerminatorCode
           f b = NBlock (measure $ readNibbles b) b
