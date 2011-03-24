@@ -178,9 +178,12 @@ makeBlocks :: Int -> Code -> [Code] -> [Block]
 makeBlocks blocksize special cs = go specialLen [] cs
   where go :: Int -> [Code] -> [Code] -> [Block]
         go acc coll (x:xs)
-          | acc + codelengthG x > blocksize  = (makeBlock $ reverse (special:coll)) : go specialLen [] (x:xs)
+          | acc + codelengthG x > blocksize =
+            if null coll
+            then error "Blocksize too small!"
+            else (makeBlock $ reverse (special:coll)) : go specialLen [] (x:xs)
           | otherwise = go (acc+codelengthG x) (x:coll) xs
-        go _ coll [] = [makeBlock $ reverse (special:coll)]
+        go _ coll [] = [makeBlock $ reverse coll]
         specialLen = codelengthG special
 
 prop_makeBlocks :: [Code] -> Property
@@ -305,7 +308,7 @@ nibble :: Block -> Int -> Int
 nibble b i = fromIntegral $ getCode $ takeCode 4 $ readPiece b i
 
 readNibble :: Block -> Int -> Maybe (Gap,Int)
-readNibble b i = if nibble b i == 8
+readNibble b i = if nibble b i == nibbleTerminator
                  then Nothing
                  else loop 0 i
   where loop !acc !i =
@@ -381,6 +384,14 @@ instance Encoded EBlock where
 instance Encoded NBlock where
   decode = readNibbles . unNBlock
   encode g = NBlock (measure g) . makeBlock . nibbleEncode $ g
+  
+  encodeMany blocksize gs = map f blocks
+    where blocks = makeBlocks blocksize special codes
+          codes = nibbleEncode gs
+          --- XXX this takes quite a bit of space...
+          special = nibble_encode (Gap 0) +++ nibbleTerminatorCode
+          f b = NBlock (measure $ readNibbles b) b
+  
   encodedSize = bitLength . unNBlock
   
 instance Encoded UBlock where
@@ -388,6 +399,8 @@ instance Encoded UBlock where
   --- XXX 0 is ugly!
   encode = construct 0 . unGapify 
   encodedSize = getSize . umeasure
+  
+  encodeMany blocksize gs = map construct' $ cut blocksize $ unGapify gs
       
 instance Measured SizeRank EBlock where
   measure = emeasure
