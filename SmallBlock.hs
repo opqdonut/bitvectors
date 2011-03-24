@@ -14,30 +14,30 @@ import Data.Bits.Extras
 
 import Test.QuickCheck hiding ((.&.))
 
-newtype SmallBlock = SmallBlock Code
+newtype SmallBlock = SmallBlock Word64
                 deriving Show
                   
 instance BitVector SmallBlock where
   
   construct siz xs
-    | siz<=64=SmallBlock (bitsToCode xs)
+    | siz<=64=SmallBlock (getCode $ bitsToCode xs)
     | otherwise = error "bad length for SmallBlock"
 
-  query (SmallBlock c) i = testBit (getCode c) (fromIntegral i)
+  query (SmallBlock c) i = testBit c (fromIntegral i)
   
   queryrank (SmallBlock c) i =
-    fromIntegral . populationCount . getCode $ takeCode (i+1) c
+    fromIntegral . populationCount $ ones (i+1) .&. c
 
-  select (SmallBlock c) i = loop (getCode c) i
+  select (SmallBlock c) i = loop c i
     where lowestBit w = fromIntegral $ lowestBitPlus1 w - 1
           loop 0 0 = Nothing
           loop w 0 = Just $ lowestBit w
           loop w i = loop (w `clearBit` lowestBit w) (i-1)
 
-  querysize (SmallBlock c) = codelengthG c
+  querysize (SmallBlock c) = 64
 
   deconstruct (SmallBlock c) =
-    codeToBits c
+    map (testBit c) [0..63]
 
 instance Encoded SmallBlock where
 
@@ -47,15 +47,14 @@ instance Encoded SmallBlock where
     where bs = unGapify gs 
           
 prop_encode_decode =
-  forAll (choose (1,64)) $ \siz ->
-    forAll (vector siz) $ \dat ->
-    let gs = gapify dat in
-    gs == decode (encode gs :: SmallBlock)
+  forAll (vector 64) $ \dat ->
+  let gs = gapify dat in
+  gs == decode (encode gs :: SmallBlock)
 
 instance Measured SizeRank SmallBlock where
   measure (SmallBlock c) = SizeRank
-                           (codelengthG c)
-                           (fromIntegral . populationCount . getCode $ c)
+                           64
+                           (fromIntegral . populationCount $ c)
 
 ---
   

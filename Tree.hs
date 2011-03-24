@@ -24,7 +24,7 @@ data Tree a v = Empty
                        
 instance Measured a v => Measured a (Tree a v) where
   measure Empty = mempty
-  measure (Leaf a _) = a
+  measure (Leaf a v) = a
   measure (Node _ _ a) = a
 
 leaf :: Measured ann val => val -> Tree ann val
@@ -123,16 +123,16 @@ prop_Dynamic = test_BitVector (construct' :: [Bool] -> Dynamic)
        
 -----
 
-newtype SmallDynamic = SmallDynamic (Tree SizeRank SmallBlock)
+data SmallDynamic = SmallDynamic Int (Tree SizeRank SmallBlock)
 
 instance BitVector SmallDynamic where
   
-  construct siz xs = SmallDynamic (build 64 xs)
+  construct siz xs = SmallDynamic siz (build 64 xs)
   
-  query (SmallDynamic t) i = query t i          
-  queryrank (SmallDynamic t) i = queryrank t i          
-  select (SmallDynamic t) i = select t i
-  querysize (SmallDynamic t) = querysize t
+  query (SmallDynamic s t) i = query t i          
+  queryrank (SmallDynamic s t) i = queryrank t i          
+  select (SmallDynamic s t) i = select t i
+  querysize (SmallDynamic s t) = s
 
 prop_SmallDynamic = test_BitVector (construct' :: [Bool] -> SmallDynamic)
 
