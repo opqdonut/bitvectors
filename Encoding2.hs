@@ -27,7 +27,8 @@ import BitVector
 import Testing
 
 -- A Code is a smallish chunk of bits
-data Code = Code {codelength :: !Word8, code :: !Word64}
+data Code = Code {codelength :: {-# UNPACK #-} !Word8,
+                  code :: {-# UNPACK #-} !Word64}
 
 instance Eq Code where
   a == b = codelength a == codelength b && getCode a == getCode b
@@ -259,6 +260,24 @@ readElias b index = do
   (gap, len) <- eliasDecode code
   return (gap, index+len)
     
+readBit :: Block -> Int -> Bool
+readBit (Block arr) i = testBit w bitI
+  where (wordI,bitI) = i `divMod` 8
+        w = arr!wordI
+    
+fastReadElias :: Block -> Int -> Maybe (Gap,Int)
+fastReadElias b i =
+  do ll <- let loop k
+                 | i+k>=bitLength b = Nothing
+                 | readBit b (i+k) = Just $ fromIntegral k
+                 | otherwise = loop (k+1)
+           in loop 0
+     return $ case ll of
+       0  -> (Gap 0, 1)
+       ll -> let l = fromIntegral $ getCode (readCode b (i+ll+1) (ll-1)) `setBit` (ll-1)
+                 x = fromIntegral $ getCode (readCode b (i+ll+1+ll-1) (l-1)) `setBit` (l-1)
+             in (Gap . fromIntegral $ x, i+2*ll+l-1)
+    
 prop_read_write_elias = 
   forAll (choose (0,8007199254740992)) $ \i -> 
     let g = Gap i
@@ -266,6 +285,13 @@ prop_read_write_elias =
         block = makeBlock [code]
         Just (out,len) = readElias block 0
     in (g == out && len == fromIntegral (codelength code))
+
+prop_fastReadElias =
+  forAll (choose (0,8007199254740992)) $ \i -> 
+    let g = Gap i
+        code = elias_encode g
+        b = makeBlock [code]
+    in readElias b 0 == fastReadElias b 0
 
 readEliass' :: Block -> Int -> [Gap]
 readEliass' block = unfoldr (readElias block)
