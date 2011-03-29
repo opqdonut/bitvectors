@@ -71,8 +71,8 @@ data Static =
   
   
 mkStatic n bs = 
-  let blockSize = ilog2 n
-      stride = ilog2 n
+  let blockSize = roundUpToMultipleOf 8 $ 4 * ilog2 n
+      stride = 4*ilog2 n
       compressed = makeBlock . eliasEncode . gapify $ bs
       p = process blockSize compressed
       (encposes,offsets,sizeranks) = unzip3 p
