@@ -85,7 +85,7 @@ fDynamic :: (Encoded a, BitVector a, Measured SizeRank a) =>
             Int -> [Bool] -> FDynamic a
 fDynamic n xs = FDynamic blocksize . fromList . map cached . encodeMany blocksize $ gapify xs
   where blocksize = max
-                    (roundUpToMultipleOf 8 $ 2 * ilog2 n)
+                    (roundUpToMultipleOf 8 $ 8 * ilog2 n)
                     16
         
 fingerTreeToList :: Measured v a => FingerTree v a -> [a]
