@@ -3,9 +3,10 @@
 module Wavelet where
 
 import Debug.Trace
-import Data.List
+import Data.List hiding (insert)
 import Test.QuickCheck
 
+import FingerTreeDynamic
 import Static2
 import Encoding2
 import BitVector
@@ -104,10 +105,13 @@ mkWavelet'ng :: [Symbol] -> WaveletTree NBlock
 mkWavelet'ng = mkWavelet'
 mkWavelet'static :: [Symbol] -> WaveletTree Static
 mkWavelet'static = mkWavelet'
-    
+mkWavelet'fd :: [Symbol] -> WaveletTree (FDynamic EBlock)
+mkWavelet'fd = mkWavelet'
+
 prop_wread_list   = proto_wread mkWavelet'list
 prop_wread_ng     = proto_wread mkWavelet'ng
 prop_wread_static = proto_wread mkWavelet'static
+prop_wread_fd     = proto_wread mkWavelet'fd
        
 wrank :: BitVector a => WaveletTree a -> Symbol -> Int -> Int
 -- we fell of the tree while hunting for occurrences:
@@ -132,7 +136,8 @@ proto_wrank construct (NonEmpty xs) =
 prop_wrank_list   = proto_wrank mkWavelet'list
 prop_wrank_ng     = proto_wrank mkWavelet'ng
 prop_wrank_static = proto_wrank mkWavelet'static
-        
+prop_wrank_fd     = proto_wrank mkWavelet'fd
+                    
 {-
 wselect :: BitVector a => WaveletTree a -> Symbol -> Int -> Int
 wselect (Leaf symbol) symbol' i =
@@ -144,3 +149,22 @@ wselect (Node _ guide left right) symbol i
   | symbol `elem` symbols right = select0 guide
 -}
 
+winsert :: (BitVector a, DynamicBitVector a) => WaveletTree a -> Symbol -> Int -> WaveletTree a
+winsert (Node syms guide left right) symbol i
+  | symbol `elem` symbols left =
+    Node syms (insert guide i False) (winsert left symbol (queryrank0 guide (i-1))) right
+  | symbol `elem` symbols right = 
+    Node syms (insert guide i True) left (winsert right symbol (queryrank guide (i-1) ))
+winsert (Leaf symbol) symbol' _ = Leaf symbol
+
+proto_winsert construct (NonEmpty xs) =
+  forAll (chooseIndex xs) $ \i ->
+    forAll (elements symbols) $ \s ->
+    let w = construct xs
+        w' = winsert w s i
+    in wread w' i == s &&
+       wread w' (i+1) == wread w i
+  where 
+    symbols = (nub . sort) xs
+
+prop_winsert_fd = proto_winsert mkWavelet'fd

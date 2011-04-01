@@ -56,6 +56,10 @@ Executable Test
 Executable Testp
   Main-is: Test.hs
   ghc-options: -prof -auto-all
+
+Executable WaveletTest
+  Main-is: WaveletTest.hs
+  ghc-options: -prof -auto-all
   
 Executable Generate
   Main-is: Generate.hs
