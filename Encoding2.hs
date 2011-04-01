@@ -9,6 +9,7 @@ import Data.Bits
 import Data.Bits.Extras
 import Data.Word
 import Control.Monad.ST
+import Data.Array.Base (unsafeAt)
 import Data.Array.Unboxed
 import Data.Array.ST
 
@@ -25,6 +26,8 @@ import Util
 import BitVector
 
 import Testing
+
+(!?) = unsafeAt
 
 -- A Code is a smallish chunk of bits
 data Code = Code {codelength :: {-# UNPACK #-} !Word8,
@@ -207,7 +210,7 @@ word8ToCode w = Code 8 (fromIntegral w)
 readPiece :: Block -> Int -> Code
 readPiece b@(Block arr) index = code
   where (wordIndex,bitIndex) = index `divMod` 8
-        code = dropCode bitIndex $ word8ToCode (arr!wordIndex)
+        code = dropCode bitIndex $ word8ToCode (arr !? wordIndex)
                   
 prop_readPiece block =
   forAll (choose (0,bitLength block-1)) $ \i ->
@@ -263,7 +266,7 @@ readElias b index = do
 readBit :: Block -> Int -> Bool
 readBit (Block arr) i = testBit w bitI
   where (wordI,bitI) = i `divMod` 8
-        w = arr!wordI
+        w = arr !? wordI
     
 fastReadElias :: Block -> Int -> Maybe (Gap,Int)
 fastReadElias b i =
