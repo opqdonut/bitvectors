@@ -103,7 +103,7 @@ instance Measured SizeRank SmallElias where
   measure = measure . smallEliasToGaps
                       
 instance BitVector SmallElias where
-  construct _ bs = s
+  construct' bs = s
     where [s] = smallElias bs
           
   deconstruct = unGapify . smallEliasToGaps

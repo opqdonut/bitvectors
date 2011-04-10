@@ -11,17 +11,16 @@ import Test.QuickCheck
 class BitVector a where
   query :: a -> Int -> Bool
   queryrank  :: a -> Int -> Int
+  queryrank0 :: a -> Int -> Int 
+  queryrank0 a i = i - queryrank a i + 1
   select :: a -> Int -> Maybe Int
+  querysize :: a -> Int
+  
   construct :: Int -> [Bool] -> a
-
+  construct _ xs = construct' xs
   construct' :: [Bool] -> a
   construct' xs = construct (length xs) xs
 
-  queryrank0 :: a -> Int -> Int 
-  queryrank0 a i = i - queryrank a i + 1
-  
-  querysize :: a -> Int
-  
   deconstruct :: a -> [Bool]
   deconstruct b = map (query b) [0 .. querysize b - 1]
 
