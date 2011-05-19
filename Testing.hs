@@ -55,3 +55,11 @@ test_BitVector a =
   name "In test_queryrank0:" (test_queryrank0 a) .&&.
   name "In test_select:" (test_select a) 
 
+test_insert mk (NonEmpty xs) = 
+  forAll (chooseIndex xs) $ \i ->
+  forAll (choose (False,True)) $ \val ->
+  insert xs i val == deconstruct (insert (mk xs) i val)
+  
+test_delete mk (NonEmpty xs) = 
+  forAll (chooseIndex xs) $ \i ->
+  delete xs i == deconstruct (delete (mk xs) i)

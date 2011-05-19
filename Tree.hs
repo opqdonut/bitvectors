@@ -9,7 +9,7 @@ import Util
 import Testing
 import SmallBlock
 
-import Data.List hiding (find)
+import Data.List hiding (find,insert,delete)
 import Test.QuickCheck
 import Test.QuickCheck.Property
 
@@ -47,6 +47,17 @@ find p t = go mempty t
         | p (acc +++ ann) = go (acc +++ measure l) r
         | otherwise = Nothing
                       
+modify :: Measured a v =>
+          (a -> Bool) -> ((a,v) -> v) -> Tree a v -> (Tree a v)
+modify p f t = go mempty t
+  where 
+    go !acc orig@(Leaf ann v)
+      | p (acc +++ ann) = leaf $ f (acc,v)
+      | otherwise = orig
+    go !acc orig@(Node l r ann)
+      | p (acc +++ measure l) = node (go acc l) r
+      | p (acc +++ ann)       = node l          (go (acc +++ measure l) r)
+      | otherwise = orig
                       
 ---  building balanced trees
 
@@ -101,6 +112,15 @@ instance (Measured SizeRank a, BitVector a) =>
     
   querysize = getSize . measure
 
+instance (Measured SizeRank a, DynamicBitVector a) =>
+         DynamicBitVector (Tree SizeRank a) where
+           
+  insert t i v = modify (index i)
+                 (\(SizeRank s r,block) -> insert block (i-s) v)
+                 t
+  delete t i = modify (index i)
+               (\(SizeRank s r,block) -> delete block (i-s))
+               t
 
 newtype Dynamic = Dynamic (Tree SizeRank EBlock)
 
@@ -122,6 +142,14 @@ instance BitVector Dynamic where
     
 prop_Dynamic = test_BitVector (construct' :: [Bool] -> Dynamic)
        
+instance DynamicBitVector Dynamic where
+  
+  insert (Dynamic t) i v = Dynamic $ insert t i v
+  delete (Dynamic t) i = Dynamic $ delete t i
+  
+prop_Dynamic_insert = test_insert (construct' :: [Bool] -> Dynamic)
+prop_Dynamic_delete = test_delete (construct' :: [Bool] -> Dynamic)
+
 -----
 
 data SmallDynamic = SmallDynamic Int (Tree SizeRank SmallBlock)
