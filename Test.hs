@@ -23,10 +23,6 @@ gen2 n k = map f . take n $ randoms (mkStdGen 0)
     f :: Int -> Bool
     f a = a `mod` k == 0
   
-inputFromFile name = do
-  d <- B.readFile name
-  return $ concatMap (pad 8.bitify) (B.unpack d)
-
 main = do
 
   s:filename:k':_ <- getArgs
@@ -37,7 +33,7 @@ main = do
   --let input0 = gen2 1024 37
   --let input = take n $ cycle input0
   
-  input <- inputFromFile filename
+  input <- bitsFromFile filename
   let n = length input
   
   print (s,filename,n,k)

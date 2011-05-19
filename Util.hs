@@ -8,6 +8,8 @@ import qualified Data.Map as M
 import Data.Bits
 import Data.MemoCombinators as Memo
 
+import qualified Data.ByteString as B
+
 import Data.Array.Unboxed
 import Test.QuickCheck
 
@@ -92,6 +94,11 @@ entropy k xs =
           combine (xs,n) (xs',n') = (xs++xs',n+n')
           m = M.fromListWith combine $ zip subs (zip chars $ repeat 1)
           x = sum [ n_xs * entropy 0 xs | (xs,n_xs) <- M.elems m ]
+
+bitsFromFile :: String -> IO [Bool]
+bitsFromFile name = do
+  d <- B.readFile name
+  return $ concatMap (pad 8.bitify) (B.unpack d)
 
 -------------
 -- Test utils
