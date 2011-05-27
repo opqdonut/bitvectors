@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 SIZES="1 2 4 8 16 32 64 128 256 512"
-QUERIES=100000
+QUERIES=${QUERIES:-100000}
 
 REPEATS=${1:-1}
 

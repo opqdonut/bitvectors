@@ -61,8 +61,8 @@ Executable WaveletTest
   Main-is: WaveletTest.hs
   ghc-options: -prof -auto-all
 
-Executable PersistentTest
-  Main-is: PersistentTest.hs
+Executable DynamicTest
+  Main-is: DynamicTest.hs
   ghc-options: -prof -auto-all
   
 Executable Generate

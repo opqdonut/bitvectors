@@ -1,32 +1,54 @@
 module Main where
 
-import BitVector
-import Encoding2
 import FingerTreeDynamic
+import Tree
+import Encoding2 (EBlock,UBlock,NBlock)
+import BitVector
+import Util
 
 import System.Environment (getArgs)
-import Random
+import System.IO
+import System.Random
 import Control.Monad
 
-dat = [True,False,True,False]
+randomInsert v = do
+  i <- randomRIO (0,querysize v - 1)
+  b <- randomRIO (False,True)
+  return $ insert v i b
 
-go 0 _ _ = return ()
-go k n f = do i <- randomRIO (0,n-1)
-              v <- randomRIO (False,True)
-              print (k,n,i,v)
-              let f' = insert f i v
-              unless (v == query f' i) $
-                fail ("didn't match!: " ++ show f)
-              go (k-1) (n+1) f'
+randomQuery v = do
+  i <- randomRIO (0,querysize v - 1)
+  return (i, query v i, queryrank v i)
+
+randomIQ v = do
+  v' <- randomInsert v
+  randomQuery v'
+
+mkMods v 0 = return []
+mkMods v k = do
+  v' <- randomInsert v
+  fmap (v:) $ mkMods v' (k-1)
+
+tst :: (DynamicBitVector a, BitVector a) => Int -> a -> IO ()
+tst queries vec =
+  replicateM_ queries $
+    randomIQ vec >>= print
 
 main = do
   
-  (n:nIns:[]) <- fmap (map read) getArgs
-  
-  let f :: FDynamic EBlock
-      f = fDynamic n dat 
+  which:filename:queries':_ <- getArgs
+
+  let queries = read queries'
       
-  go nIns (length dat) f
+  input <- bitsFromFile filename
   
-  
-      
+  let 
+    t :: (BitVector a, DynamicBitVector a) => a -> IO ()
+    t = tst queries
+    
+  case which
+    of "d" -> t (construct' input :: Dynamic)
+       --"sed" -> t (construct' input :: SmallEliasDynamic)
+       "fdn" -> t (construct' input :: FDynamic NBlock)
+       "fd" -> t (construct' input :: FDynamic EBlock)
+       --"fun" -> t (construct' input :: FDynamic UBlock)
