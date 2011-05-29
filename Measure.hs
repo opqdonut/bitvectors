@@ -58,10 +58,12 @@ cached :: Measured a v => v -> Cached a v
 cached x = Cached (measure x) x
 
 instance (BitVector a, Measured v a) => BitVector (Cached v a) where
-  construct l xs = cached $ construct l xs
   deconstruct a = deconstruct (unCached a)
   
   querysize a = querysize (unCached a)
   query a i = query (unCached a) i
   queryrank a i = queryrank (unCached a) i
   select a i = select (unCached a) i
+
+instance (Construct a, Measured v a) => Construct (Cached v a) where
+  construct l xs = cached $ construct l xs

@@ -58,7 +58,7 @@ symbols :: WaveletTree a -> [Symbol]
 symbols (Leaf s) = [s]
 symbols (Node ss _ _ _) = ss
 
-mkWavelet :: BitVector a =>
+mkWavelet :: Construct a =>
              [Symbol] ->     -- alphabet
              [Symbol] ->     -- data
              WaveletTree a
@@ -74,7 +74,7 @@ mkWavelet symbs xs = Node symbs vec left right
         left  = mkWavelet lsymbs lxs
         right = mkWavelet rsymbs rxs
         
-mkWavelet' :: BitVector a => [Symbol] -> WaveletTree a
+mkWavelet' :: Construct a => [Symbol] -> WaveletTree a
 mkWavelet' xs = mkWavelet (nub $ sort xs) xs
         
 instance Arbitrary (WaveletTree [Bool]) where

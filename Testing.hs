@@ -7,7 +7,7 @@ import IO
 import Test.QuickCheck
 import Test.QuickCheck.Property
 
-arbitraryBitVector :: BitVector a => Gen a
+arbitraryBitVector :: Construct a => Gen a
 arbitraryBitVector = do
   bs <- listOf1 arbitrary
   return $ construct' bs

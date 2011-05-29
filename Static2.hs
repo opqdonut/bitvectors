@@ -146,5 +146,7 @@ instance BitVector Static where
   query = _query
   queryrank = _queryrank
   select = undefined
-  construct = mkStatic
   querysize = sbitlength
+  
+instance Construct Static where
+  construct = mkStatic

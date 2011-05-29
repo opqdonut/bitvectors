@@ -2,11 +2,11 @@ module Main where
 
 import Util
 import Static
+import BitVector
 import FingerTreeDynamic 
 import Encoding2 (EBlock,UBlock,NBlock)
 import Static2
 import Tree (Dynamic,SmallDynamic,SmallEliasDynamic)
-
 import SmallBlock
 
 import qualified Data.ByteString as B
@@ -46,10 +46,10 @@ main = do
             "fun"-> test (construct n input :: FDynamic UBlock) n k
             "fs" -> test (construct n input :: FDynamic SmallBlock) n k
             "fse" -> test (construct n input :: FDynamic SmallElias) n k
-            "d"  -> test (construct n input :: Dynamic) n k
-            "sd" -> test (construct n input :: SmallDynamic) n k
-            "sed"-> test (construct n input :: SmallEliasDynamic) n k
-
+            "d"  -> test (construct n input :: Dynamic EBlock) n k
+            "dn"  -> test (construct n input :: Dynamic NBlock) n k
+            "ds" -> test (construct n input :: SmallDynamic) n k
+            "dse"-> test (construct n input :: SmallEliasDynamic) n k
 
 
 test t n k = do

@@ -47,7 +47,8 @@ main = do
     t = tst queries
     
   case which
-    of "d" -> t (construct' input :: Dynamic)
+    of "d" -> t (construct' input :: Dynamic EBlock)
+       "dn" -> t (construct' input :: Dynamic NBlock)
        --"sed" -> t (construct' input :: SmallEliasDynamic)
        "fdn" -> t (construct' input :: FDynamic NBlock)
        "fd" -> t (construct' input :: FDynamic EBlock)

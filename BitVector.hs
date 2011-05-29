@@ -1,12 +1,23 @@
-{-# LANGUAGE FlexibleInstances #-}
-
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE FlexibleInstances, BangPatterns #-}
 
 module BitVector where
 
 import Util
 
 import Test.QuickCheck
+
+-- type classes
+
+class Construct a where
+  construct  :: Int -> [Bool] -> a
+  construct _ xs = construct' xs
+  
+  construct' :: [Bool] -> a
+  construct' xs = construct (length xs) xs
+  
+class BlockSize a where
+  queryBlockSize :: a -> Int
+  constructWithBlocksize :: Int -> [Bool] -> a
 
 class BitVector a where
   query :: a -> Int -> Bool
@@ -15,11 +26,6 @@ class BitVector a where
   queryrank0 a i = i - queryrank a i + 1
   select :: a -> Int -> Maybe Int
   querysize :: a -> Int
-  
-  construct :: Int -> [Bool] -> a
-  construct _ xs = construct' xs
-  construct' :: [Bool] -> a
-  construct' xs = construct (length xs) xs
 
   deconstruct :: a -> [Bool]
   deconstruct b = map (query b) [0 .. querysize b - 1]
@@ -34,14 +40,18 @@ instance BitVector [Bool] where
   query = (!!)
   queryrank xs i = rank' $ take (i+1) xs
   select xs i = select' i xs
-  construct = const id
   querysize = length
   
+instance Construct [Bool] where
+  construct' bs = bs
+
 instance DynamicBitVector [Bool] where
   insert xs i val = a ++ val:b
     where (a,b) = splitAt i xs
   delete xs i = a ++ b
     where (a,_:b) = splitAt i xs
+
+
 
 -- gap encoded bit vectors
 newtype Gap = Gap {unGap :: Int}
@@ -76,8 +86,6 @@ instance BitVector [Gap] where
 
   querysize gs = sum (map ((+1).unGap) gs) - 1
   
-  construct _ = gapify
-  
   query gaps index = loop index gaps
     where loop left (Gap gap:gaps)
             | gap<left  = loop (left-gap-1) gaps
@@ -101,6 +109,8 @@ instance BitVector [Gap] where
                              
   deconstruct = unGapify
 
+instance Construct [Gap] where
+  construct' = gapify
 
 instance DynamicBitVector [Gap] where
   insert gaps index False = loop gaps index

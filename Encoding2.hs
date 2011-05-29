@@ -440,13 +440,15 @@ instance Measured SizeRank UBlock where
        
 
 instance BitVector EBlock where
-  construct _ = encode . gapify
   query     (EBlock b) i = query (readEliass b) i
   queryrank (EBlock b) i = queryrank (readEliass b) i
   select    (EBlock b) i = select (readEliass b) i
   querysize = querysize . readEliass . unEBlock
   deconstruct = unGapify . readEliass . unEBlock
   
+instance Construct EBlock where
+  construct _ = encode . gapify
+
 instance DynamicBitVector EBlock where
   -- XXX these recalculate the measure
   insert (EBlock b) i val = encode newGaps
@@ -455,13 +457,14 @@ instance DynamicBitVector EBlock where
     where newGaps = delete (readEliass b) i
 
 instance BitVector NBlock where
-  construct _ = encode . gapify
   query     (NBlock b) i = query (readNibbles b) i
   queryrank (NBlock b) i = queryrank (readNibbles b) i
   select    (NBlock b) i = select (readNibbles b) i
   querysize = querysize . readNibbles . unNBlock
   deconstruct = unGapify . readNibbles . unNBlock
 
+instance Construct NBlock where
+  construct _ = encode . gapify
   
 instance DynamicBitVector NBlock where
   -- XXX these recalculate the measure
@@ -471,16 +474,18 @@ instance DynamicBitVector NBlock where
     where newGaps = delete (readNibbles b) i
   
 instance BitVector UBlock where
-  construct _ xs = UBlock (measure xs) . makeBlock . map f . cut 64 $ xs
-    where
-      f xs = Code (fromIntegral $ length xs)
-                  (fromIntegral . unbitify $ xs)
   query b i = query (decode b) i
   queryrank b i = queryrank (decode b) i
   select b i = select (decode b) i
   querysize = getSize . umeasure
   deconstruct b = take (querysize b) . blockToBits . unUBlock $ b
                   
+instance Construct UBlock where
+  construct _ xs = UBlock (measure xs) . makeBlock . map f . cut 64 $ xs
+    where
+      f xs = Code (fromIntegral $ length xs)
+             (fromIntegral . unbitify $ xs)
+
 prop_construct_UBlock (NonEmpty bs) = bs == deconstruct (construct' bs :: UBlock)  
                                       
 -- for lack of a better place

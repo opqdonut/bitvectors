@@ -38,12 +38,14 @@ data StaticVector = StaticVector {
       supers :: !(Array Int SuperBlock) }
 
 instance BitVector StaticVector where
-    query = _query
-    queryrank = _queryrank
-    construct = staticVector_gap
-    select = undefined
-    querysize = undefined --- XXX
+  query = _query
+  queryrank = _queryrank
+  select = undefined
+  querysize = undefined --- XXX
                 
+instance Construct StaticVector where
+  construct = staticVector_gap
+
 rank :: [Bool] -> Rank                  
 rank = count id
 

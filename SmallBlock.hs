@@ -18,10 +18,6 @@ newtype SmallBlock = SmallBlock Word64
                 deriving Show
                   
 instance BitVector SmallBlock where
-  
-  construct siz xs
-    | siz<=64=SmallBlock (getCode $ bitsToCode xs)
-    | otherwise = error "bad length for SmallBlock"
 
   query (SmallBlock c) i = testBit c (fromIntegral i)
   
@@ -38,7 +34,13 @@ instance BitVector SmallBlock where
 
   deconstruct (SmallBlock c) =
     map (testBit c) [0..63]
+    
+instance Construct SmallBlock where
+  construct siz xs
+    | siz<=64=SmallBlock (getCode $ bitsToCode xs)
+    | otherwise = error "bad length for SmallBlock"
 
+{-
 instance Encoded SmallBlock where
 
   decode = gapify . deconstruct
@@ -50,6 +52,7 @@ prop_encode_decode =
   forAll (vector 64) $ \dat ->
   let gs = gapify dat in
   gs == decode (encode gs :: SmallBlock)
+-}
 
 instance Measured SizeRank SmallBlock where
   measure (SmallBlock c) = SizeRank
@@ -103,9 +106,6 @@ instance Measured SizeRank SmallElias where
   measure = measure . smallEliasToGaps
                       
 instance BitVector SmallElias where
-  construct' bs = s
-    where [s] = smallElias bs
-          
   deconstruct = unGapify . smallEliasToGaps
           
   query s i = query (smallEliasToGaps s) i
@@ -113,6 +113,9 @@ instance BitVector SmallElias where
   select s i = select (smallEliasToGaps s) i
   querysize s = querysize (smallEliasToGaps s)
 
+instance Construct SmallElias where
+  construct' bs = s
+    where [s] = smallElias bs
 
 genSmallElias = do
   bs <- listOf1 arbitrary

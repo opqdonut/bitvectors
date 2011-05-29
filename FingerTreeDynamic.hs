@@ -27,9 +27,11 @@ instance BitVector (FDynamic EBlock) where
   query = _query
   queryrank = _queryrank
   select = _select
-  construct = fDynamic
   querysize = _size
   
+instance Construct (FDynamic EBlock) where
+  construct = fDynamic
+
 instance DynamicBitVector (FDynamic EBlock) where
   insert = _insert
 
@@ -37,8 +39,10 @@ instance BitVector (FDynamic NBlock) where
   query = _query
   queryrank = _queryrank
   select = _select
-  construct = fDynamic
   querysize = _size
+  
+instance Construct (FDynamic NBlock) where
+  construct = fDynamic
   
 instance DynamicBitVector (FDynamic NBlock) where
   insert = _insert
@@ -47,8 +51,10 @@ instance BitVector (FDynamic UBlock) where
   query = _query
   queryrank = _queryrank
   select = _select
-  construct = fDynamic
   querysize = _size
+  
+instance Construct (FDynamic UBlock) where
+  construct = fDynamic
   
 {-
 instance DynamicBitVector (FDynamic UBlock) where
@@ -59,20 +65,24 @@ instance BitVector (FDynamic SmallBlock) where
   query = _query
   queryrank = _queryrank
   select = _select
-  construct _ xs = FDynamic 64 (build 64 xs)
   querysize = _size
+
+instance Construct (FDynamic SmallBlock) where
+  construct _ xs = FDynamic 64 (build 64 xs)
 
 instance BitVector (FDynamic SmallElias) where
   query = _query
   queryrank = _queryrank
   select = _select
-  construct _ xs = FDynamic 0 . fromList . map cached . smallElias $ xs
   querysize = _size
+
+instance Construct (FDynamic SmallElias) where
+  construct _ xs = FDynamic 0 . fromList . map cached . smallElias $ xs
 
 instance Show (FDynamic a) where
   show f = "(FDynamic " ++ show (blocksize f) ++ " " ++ show (ftoList f) ++ ")"
 
-build :: (BitVector a, Measured SizeRank a) =>
+build :: (Construct a, Measured SizeRank a) =>
          Int -> [Bool] -> FingerTree SizeRank a
 build size xs = fromList $ unfoldr go xs
   where go [] = Nothing

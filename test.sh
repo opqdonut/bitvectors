@@ -22,7 +22,7 @@ function testall {
     echo '#' REPEATS: $REPEATS
     echo '#' QUERIES: $QUERIES
     for COMMAND in "$TEST sg" "$TEST s2" "$TEST fd" "$TEST fdn" "$TEST fun"\
-   "$TEST fs" "$TEST fse" "$TEST d" "$TEST sd" "$TEST sed"\
+   "$TEST fs" "$TEST fse" "$TEST d" "$TEST dn" "$TEST ds" "$TEST dse"\
    "../impls/cst_v_1_0/mytest" "../impls/rlcsa/mytest" "../impls/gerlach/dynfmi/mytest";
     do
 	echo '#' $COMMAND " "

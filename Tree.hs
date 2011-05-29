@@ -84,9 +84,7 @@ mkbal :: Measured a v => [v] -> Tree a v
 mkbal xs = t
   where t = iteratePairUp $ map leaf xs
 
---- quick'n'dirty bitvector
-
-build :: (BitVector a, Measured SizeRank a) =>
+build :: (Construct a, Measured SizeRank a) =>
          Int -> [Bool] -> Tree SizeRank a
 build size xs = mkbal $ unfoldr go xs
   where go [] = Nothing
@@ -96,10 +94,7 @@ build size xs = mkbal $ unfoldr go xs
 
 instance (Measured SizeRank a, BitVector a) =>
          BitVector (Tree SizeRank a) where
-  
-  construct n xs = build blocksize xs
-    where blocksize = roundUpToPowerOf 2 $ 16 * ilog2 n
-  
+           
   query t i = query block (i-s)
     where Just ((SizeRank s r),block) = find (index i) t
           
@@ -122,47 +117,49 @@ instance (Measured SizeRank a, DynamicBitVector a) =>
                (\(SizeRank s r,block) -> delete block (i-s))
                t
 
-newtype Dynamic = Dynamic (Tree SizeRank EBlock)
+type Dynamic a = Tree SizeRank a
 
-mkDynamic n xs = Dynamic (mkbal blocks)
+mkDynamic n xs = (mkbal blocks)
   where blocksize = roundUpToMultipleOf 8 $ 8 * ilog2 n
         blocks = encodeMany blocksize $ gapify xs
 
-instance BitVector Dynamic where
-  
-  construct = mkDynamic
-  
-  query (Dynamic t) i = query t i
-          
-  queryrank (Dynamic t) i = queryrank t i
-          
-  select (Dynamic t) i = select t i
-  
-  querysize (Dynamic t) = querysize t
-    
-prop_Dynamic = test_BitVector (construct' :: [Bool] -> Dynamic)
-       
-instance DynamicBitVector Dynamic where
-  
-  insert (Dynamic t) i v = Dynamic $ insert t i v
-  delete (Dynamic t) i = Dynamic $ delete t i
-  
-prop_Dynamic_insert = test_insert (construct' :: [Bool] -> Dynamic)
-prop_Dynamic_delete = test_delete (construct' :: [Bool] -> Dynamic)
+instance Construct (Tree SizeRank EBlock) where
+  construct n xs = mkbal blocks
+    where blocksize = roundUpToMultipleOf 8 $ 8 * ilog2 n
+          blocks = encodeMany blocksize $ gapify xs
+
+instance Construct (Tree SizeRank NBlock) where
+  construct n xs = mkbal blocks
+    where blocksize = roundUpToMultipleOf 8 $ 8 * ilog2 n
+          blocks = encodeMany blocksize $ gapify xs
+
+instance Construct (Tree SizeRank UBlock) where
+  construct n xs = mkbal blocks
+    where blocksize = roundUpToMultipleOf 8 $ 8 * ilog2 n
+          blocks = encodeMany blocksize $ gapify xs
+
+prop_Dynamic_EBlock = test_BitVector (construct' :: [Bool] -> Dynamic EBlock)
+prop_Dynamic_NBlock = test_BitVector (construct' :: [Bool] -> Dynamic NBlock)
+prop_Dynamic_UBlock = test_BitVector (construct' :: [Bool] -> Dynamic UBlock)
+
+prop_Dynamic_insert = test_insert (construct' :: [Bool] -> Dynamic EBlock)
+prop_Dynamic_delete = test_delete (construct' :: [Bool] -> Dynamic EBlock)
+prop_Dynamic_insert_N = test_insert (construct' :: [Bool] -> Dynamic NBlock)
+prop_Dynamic_delete_N = test_delete (construct' :: [Bool] -> Dynamic NBlock)
 
 -----
 
 data SmallDynamic = SmallDynamic Int (Tree SizeRank SmallBlock)
 
 instance BitVector SmallDynamic where
-  
-  construct siz xs = SmallDynamic siz (build 64 xs)
-  
   query (SmallDynamic s t) i = query t i          
   queryrank (SmallDynamic s t) i = queryrank t i          
   select (SmallDynamic s t) i = select t i
   querysize (SmallDynamic s t) = s
 
+instance Construct SmallDynamic where
+  construct siz xs = SmallDynamic siz (build 64 xs)
+  
 prop_SmallDynamic = test_BitVector (construct' :: [Bool] -> SmallDynamic)
 
 -----
@@ -170,11 +167,13 @@ prop_SmallDynamic = test_BitVector (construct' :: [Bool] -> SmallDynamic)
 newtype SmallEliasDynamic = SmallEliasDynamic (Tree SizeRank SmallElias)
 
 instance BitVector SmallEliasDynamic where
-  
-  construct _ xs = SmallEliasDynamic . mkbal . smallElias $ xs
   query (SmallEliasDynamic t) i = query t i          
   queryrank (SmallEliasDynamic t) i = queryrank t i          
   select (SmallEliasDynamic t) i = select t i
   querysize (SmallEliasDynamic t) = querysize t
+  
+instance Construct SmallEliasDynamic where
+  construct _ xs = SmallEliasDynamic . mkbal . smallElias $ xs
+  
 
 prop_SmallEliasDynamic = test_BitVector (construct' :: [Bool] -> SmallEliasDynamic)
