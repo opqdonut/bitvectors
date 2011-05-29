@@ -63,3 +63,27 @@ test_insert mk (NonEmpty xs) =
 test_delete mk (NonEmpty xs) = 
   forAll (chooseIndex xs) $ \i ->
   delete xs i == deconstruct (delete (mk xs) i)
+  
+---
+
+test t n k = do
+  --putStrLn $ "blength,slength: " ++ show (blength test, slength test)
+
+  print $ query t 0
+
+  --let bits = sum $ map (last . elems . blocklocations) $ elems $ supers test
+  --putStrLn $ "bits: " ++ show bits ++ " (" ++ show (bits///n) ++ ")"
+
+  let go :: Int -> Int -> IO ()
+      go x 0 = return ()
+      go x i = {-# SCC "go" #-}
+        do {-# SCC "go_x" #-}     putStr (show x)
+           {-# SCC "go_query" #-} if query t x
+                                    then putStr "T"
+                                    else putStr "F"
+           {-# SCC "go_rank" #-}  putStr (show $ queryrank t x)
+           putStr " "
+           go (x*17`mod`n) (i-1)
+
+  go 1 k
+

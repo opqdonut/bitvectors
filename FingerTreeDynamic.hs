@@ -30,7 +30,11 @@ instance BitVector (FDynamic EBlock) where
   querysize = _size
   
 instance Construct (FDynamic EBlock) where
-  construct = fDynamic
+  construct n xs = fDynamic (guessBlockSize n) xs
+
+instance BlockSize (FDynamic EBlock) where
+  constructWithBlockSize = fDynamic
+  queryBlockSize = blocksize
 
 instance DynamicBitVector (FDynamic EBlock) where
   insert = _insert
@@ -42,7 +46,11 @@ instance BitVector (FDynamic NBlock) where
   querysize = _size
   
 instance Construct (FDynamic NBlock) where
-  construct = fDynamic
+  construct n xs = fDynamic (guessBlockSize n) xs
+  
+instance BlockSize (FDynamic NBlock) where
+  constructWithBlockSize = fDynamic
+  queryBlockSize = blocksize
   
 instance DynamicBitVector (FDynamic NBlock) where
   insert = _insert
@@ -54,7 +62,11 @@ instance BitVector (FDynamic UBlock) where
   querysize = _size
   
 instance Construct (FDynamic UBlock) where
-  construct = fDynamic
+  construct n xs = fDynamic (guessBlockSize n) xs
+  
+instance BlockSize (FDynamic UBlock) where
+  constructWithBlockSize = fDynamic
+  queryBlockSize = blocksize
   
 {-
 instance DynamicBitVector (FDynamic UBlock) where
@@ -90,13 +102,14 @@ build size xs = fromList $ unfoldr go xs
         go xs = let block = construct size $ take size xs
                 in block `seq` Just (block, drop size xs)
 
+guessBlockSize :: Int -> Int
+guessBlockSize n = max
+                   (roundUpToMultipleOf 8 $ 8 * ilog2 n)
+                   16
         
 fDynamic :: (Encoded a, BitVector a, Measured SizeRank a) =>
             Int -> [Bool] -> FDynamic a
-fDynamic n xs = FDynamic blocksize . fromList . map cached . encodeMany blocksize $ gapify xs
-  where blocksize = max
-                    (roundUpToMultipleOf 8 $ 8 * ilog2 n)
-                    16
+fDynamic blocksize xs = FDynamic blocksize . fromList . map cached . encodeMany blocksize $ gapify xs
         
 fingerTreeToList :: Measured v a => FingerTree v a -> [a]
 fingerTreeToList f

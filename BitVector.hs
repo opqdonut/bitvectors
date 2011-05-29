@@ -17,7 +17,7 @@ class Construct a where
   
 class BlockSize a where
   queryBlockSize :: a -> Int
-  constructWithBlocksize :: Int -> [Bool] -> a
+  constructWithBlockSize :: Int -> [Bool] -> a
 
 class BitVector a where
   query :: a -> Int -> Bool

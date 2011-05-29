@@ -68,3 +68,10 @@ Executable DynamicTest
 Executable Generate
   Main-is: Generate.hs
   Build-depends: haskell98, base>=4, bytestring, random
+
+Executable BlockSizeTest
+  Main-is: BlockSizeTest.hs
+
+Executable BlockSizeTestp
+  Main-is: BlockSizeTest.hs
+  ghc-options: -prof -auto-all

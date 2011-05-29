@@ -1,6 +1,7 @@
 module Main where
 
 import Util
+import Testing
 import Static
 import BitVector
 import FingerTreeDynamic 
@@ -51,25 +52,4 @@ main = do
             "ds" -> test (construct n input :: SmallDynamic) n k
             "dse"-> test (construct n input :: SmallEliasDynamic) n k
 
-
-test t n k = do
-  --putStrLn $ "blength,slength: " ++ show (blength test, slength test)
-
-  print $ query t 0
-
-  --let bits = sum $ map (last . elems . blocklocations) $ elems $ supers test
-  --putStrLn $ "bits: " ++ show bits ++ " (" ++ show (bits///n) ++ ")"
-
-  let go :: Int -> Int -> IO ()
-      go x 0 = return ()
-      go x i = {-# SCC "go" #-}
-        do {-# SCC "go_x" #-}     putStr (show x)
-           {-# SCC "go_query" #-} if query t x
-                                    then putStr "T"
-                                    else putStr "F"
-           {-# SCC "go_rank" #-}  putStr (show $ queryrank t x)
-           putStr " "
-           go (x*17`mod`n) (i-1)
-
-  go 1 k
 
