@@ -63,7 +63,6 @@ Executable WaveletTest
 
 Executable DynamicTest
   Main-is: DynamicTest.hs
-  ghc-options: -prof -auto-all
   
 Executable Generate
   Main-is: Generate.hs
