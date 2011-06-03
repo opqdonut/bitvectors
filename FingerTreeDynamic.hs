@@ -170,7 +170,7 @@ _insert :: (DynamicBitVector a, Measured SizeRank a, Encoded a) => FDynamic a ->
 _insert (FDynamic size f) i val =
   FDynamic size (before >< balanced)
     where (before', after') = split (index i) f
-          
+
           (before, block, after) =
             case viewl after' of
               b :< bs -> (before', unCached b, bs)
@@ -178,11 +178,11 @@ _insert (FDynamic size f) i val =
                 case viewr before' of
                   bs :> b -> (bs, unCached b, empty)
                   EmptyR -> error "_insert: This shouldn't happen!"
-          
+
           (SizeRank s _) = measure before
           i' = i-s
           newblock = insert block i' val
-          
+
           balanced = balanceAt size newblock after
 
 proto_insert f =
