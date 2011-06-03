@@ -33,6 +33,9 @@ data SuccinctArray =
   where (bigI,smallI) = i `divMod` stride
         base = big ! bigI
         offset = small ! (bigI*stride + smallI)
+        
+saLength :: SuccinctArray -> Int
+saLength (SuccinctArray _ _ small) = snd (bounds small)
 
 mkSuccinctArray :: 
   Int -> [Big] -> SuccinctArray
@@ -136,16 +139,35 @@ _queryrank static i =
   in
    baseRank + queryrank gaps offset
           
+binarySearch :: (Int -> Bool) -> Int -> Int -> Int
+binarySearch tooBig min max 
+  | max==min   = min
+  | max-min==1 = min
+  | tooBig mid = binarySearch tooBig min mid
+  | otherwise  = binarySearch tooBig mid max
+    where mid = (min + max) `div` 2
 
-prop_s_query =
-  meta_bitvector (construct' :: [Bool] -> Static) query query
-prop_s_queryrank = 
-  meta_bitvector (construct' :: [Bool] -> Static) queryrank queryrank
+_select :: Static -> Int -> Maybe Int
+_select static i =
+  let tooBig ind = ranks static !- ind >= i
+      arrayIndex = binarySearch tooBig 0 (saLength $ ranks static)
+      baseRank = ranks static !- arrayIndex
+      baseIndex = blockSize static * arrayIndex
+      location = locations static !- arrayIndex
+      offset = offsets static !- arrayIndex
+      gaps = readEliass' (compressed static) location
+  in
+   --- this actually works because the offset bits that should be
+   --- discarded are always zeros
+   do blockInd <- select gaps (i - baseRank)
+      return $ baseIndex + blockInd - offset
+  
+prop_Static2 = test_BitVector (construct' :: [Bool] -> Static)
   
 instance BitVector Static where
   query = _query
   queryrank = _queryrank
-  select = undefined
+  select = _select
   querysize = sbitlength
   
 instance Construct Static where
