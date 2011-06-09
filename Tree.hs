@@ -94,28 +94,30 @@ build size xs = mkbal $ unfoldr go xs
 
 instance (Measured SizeRank a, BitVector a) =>
          BitVector (Tree SizeRank a) where
-           
+  
   query t i = query block (i-s)
     where Just ((SizeRank s r),block) = find (index i) t
           
   queryrank t i = r + queryrank block (i-s)
     where Just ((SizeRank s r),block) = find (index i) t
           
-  select t i = do
-    (SizeRank s r, block) <- find (rank i) t
-    fmap (+s) $ select block (i-r)
-    
+  select t i 
+    | i >= getRank (measure t) = Nothing
+    | otherwise =
+      case find (rank i) t 
+      of Just (SizeRank s r, block) -> fmap (+s) $ select block (i-r)
+         Nothing -> Nothing
+  
   querysize = getSize . measure
 
 instance (Measured SizeRank a, DynamicBitVector a) =>
          DynamicBitVector (Tree SizeRank a) where
            
-  insert t i v = modify (index i)
-                 (\(SizeRank s r,block) -> insert block (i-s) v)
-                 t
-  delete t i = modify (index i)
-               (\(SizeRank s r,block) -> delete block (i-s))
-               t
+  insert t i v = modify (index i) insertIntoLeaf t
+    where insertIntoLeaf (SizeRank s r,block) = insert block (i-s) v
+
+  delete t i = modify (index i) deleteFromLeaf t
+    where deleteFromLeaf (SizeRank s r,block) = delete block (i-s)
 
 type Dynamic a = Tree SizeRank a
 
