@@ -17,7 +17,7 @@ randomQuery wav = do
   i <- randomRIO (0,wlength wav - 1)
   return (i, wread wav i)
 
-mkMods wav 0 = return []
+mkMods wav 0 = return [wav]
 mkMods wav k = do
   wav' <- randomInsert wav
   fmap (wav':) $ mkMods wav' (k-1)
