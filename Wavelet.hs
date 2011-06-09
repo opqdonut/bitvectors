@@ -4,6 +4,8 @@ module Wavelet where
 
 import Debug.Trace
 import Data.List hiding (insert)
+import qualified Data.Map as M
+import Data.Ord
 import Test.QuickCheck
 
 import FingerTreeDynamic
@@ -45,9 +47,7 @@ prop_alphabetMergeSplit xs =
                                             
                                             
 halve :: [a] -> ([a],[a])
-halve xs = go xs
-  where go [] = ([],[])
-        go (x:xs) = let (a,b) = go xs in (x:b,a)
+halve xs = splitAt (length xs `div` 2) xs
         
 data WaveletTree a
   = Leaf Symbol
@@ -74,8 +74,13 @@ mkWavelet symbs xs = Node symbs vec left right
         left  = mkWavelet lsymbs lxs
         right = mkWavelet rsymbs rxs
         
+histogram :: [Symbol] -> M.Map Symbol Int
+histogram = foldl' (\m sym -> M.insertWith' (+) sym 1 m) M.empty
+
 mkWavelet' :: Construct a => [Symbol] -> WaveletTree a
-mkWavelet' xs = mkWavelet (nub $ sort xs) xs
+mkWavelet' xs = mkWavelet symbols xs
+  where h = histogram xs
+        symbols = reverse . map fst . sortBy (comparing snd) $ M.assocs h
         
 instance Arbitrary (WaveletTree [Bool]) where
   arbitrary = do xs <- listOf1 arbitrary
