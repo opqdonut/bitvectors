@@ -47,6 +47,8 @@ Executable Test
   Main-is: Test.hs
   Build-depends: haskell98, base>=4, fingertree, QuickCheck, bits-extras, array, data-memocombinators, containers, parallel, bytestring
   
+  ghc-options: -funbox-strict-fields -O3
+
   -- Modules not exported by this package.
   -- Other-modules:       
   
