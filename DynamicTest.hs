@@ -15,24 +15,24 @@ randomInsert v = do
   i <- randomRIO (0,querysize v - 1)
   b <- randomRIO (False,True)
   return $ insert v i b
+  
+randomDelete v = do
+  i <- randomRIO (0,querysize v - 1)
+  return $ delete v i
 
 randomQuery v = do
   i <- randomRIO (0,querysize v - 1)
   return (i, query v i, queryrank v i)
 
-randomIQ v = do
+randomIDQ v = do
   v' <- randomInsert v
-  randomQuery v'
-
-mkMods v 0 = return []
-mkMods v k = do
-  v' <- randomInsert v
-  fmap (v:) $ mkMods v' (k-1)
+  v'' <- randomDelete v'
+  randomQuery v''
 
 tst :: (DynamicBitVector a, BitVector a) => Int -> a -> IO ()
 tst queries vec =
   replicateM_ queries $
-    randomIQ vec >>= print
+    randomIDQ vec >>= print
 
 main = do
   
