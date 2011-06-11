@@ -4,6 +4,7 @@ import BitVector
 import Util
 import IO
 
+import Data.List (foldl')
 import Test.QuickCheck
 import Test.QuickCheck.Property
 
@@ -64,6 +65,16 @@ test_delete mk (NonEmpty xs) =
   forAll (chooseIndex xs) $ \i ->
   delete xs i == deconstruct (delete (mk xs) i)
   
+test_insert_many mk (NonEmpty xs) (NonEmpty ys) =
+  forAll (chooseIndex xs) $ \i ->
+  insert' xs i == deconstruct (insert' (mk xs) i)
+    where insert' vec i = foldl' (\vec val -> insert vec i val) vec ys
+  
+test_DynamicBitVector a =
+  name "In test_insert:" (test_insert a) .&&.
+  name "In test_insert_many:" (test_insert_many a) .&&.
+  name "In test_delete:" (test_delete a)
+
 ---
 
 test t n k = do

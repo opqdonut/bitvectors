@@ -38,6 +38,7 @@ instance BlockSize (FDynamic EBlock) where
 
 instance DynamicBitVector (FDynamic EBlock) where
   insert = _insert
+  delete = _delete
 
 instance BitVector (FDynamic NBlock) where
   query = _query
@@ -54,6 +55,7 @@ instance BlockSize (FDynamic NBlock) where
   
 instance DynamicBitVector (FDynamic NBlock) where
   insert = _insert
+  delete = _delete
   
 instance BitVector (FDynamic UBlock) where
   query = _query
@@ -166,10 +168,13 @@ balanceAt lim elem after
   | otherwise
     = cached elem <| after
 
-_insert :: (DynamicBitVector a, Measured SizeRank a, Encoded a) => FDynamic a -> Int -> Bool -> FDynamic a
-_insert (FDynamic size f) i val =
+modify :: (DynamicBitVector a, Measured SizeRank a, Encoded a) =>
+          (SizeRank -> Bool) ->
+          ((SizeRank,a) -> a) ->
+          FDynamic a -> FDynamic a
+modify pred f (FDynamic size t) =
   FDynamic size (before >< balanced)
-    where (before', after') = split (index i) f
+    where (before', after') = split pred t
 
           (before, block, after) =
             case viewl after' of
@@ -177,22 +182,23 @@ _insert (FDynamic size f) i val =
               EmptyL ->
                 case viewr before' of
                   bs :> b -> (bs, unCached b, empty)
-                  EmptyR -> error "_insert: This shouldn't happen!"
+                  EmptyR -> error "modify: This shouldn't happen!"
 
-          (SizeRank s _) = measure before
-          i' = i-s
-          newblock = insert block i' val
+          sr = measure before
+          newblock = f (sr,block)
 
           balanced = balanceAt size newblock after
+          
+_insert f i val = modify (index i) insertIntoLeaf f
+  where insertIntoLeaf (SizeRank s r, a) = insert a (i-s) val
 
-proto_insert f =
-  forAll (chooseFIndex f) $ \i ->
-    forAll (choose (False,True)) $ \val ->
-      val == _query (_insert f i val) i
-prop_insert :: FDynamic EBlock -> Property
-prop_insert = proto_insert
-prop_insert_n :: FDynamic NBlock -> Property
-prop_insert_n = proto_insert
+_delete f i = modify (index i) deleteFromLeaf f
+  where deleteFromLeaf (SizeRank s r, a) = delete a (i-s)
+        
+prop_DynamicBitVector =
+  test_DynamicBitVector (construct' :: [Bool] -> FDynamic EBlock)
+prop_DynamicBitVector_n = 
+  test_DynamicBitVector (construct' :: [Bool] -> FDynamic NBlock)
 
 -- TEST INFRA
         
