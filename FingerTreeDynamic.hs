@@ -10,6 +10,7 @@ import SmallBlock
 import Testing
 
 import Data.List (unfoldr)
+import Data.Foldable (toList)
 
 import Debug.Trace
 import Test.QuickCheck hiding ((><))
@@ -155,18 +156,18 @@ _select f i = do
   fmap (+s) $ select block (i-r)
   
 balanceAt :: (Measured SizeRank a, Encoded a) =>
-             Int -> a -> FingerTree SizeRank (Cached SizeRank a) -> FingerTree SizeRank (Cached SizeRank a)
+             Int -> a ->
+             FingerTree SizeRank (Cached SizeRank a) ->
+             FingerTree SizeRank (Cached SizeRank a)
 balanceAt lim elem after
-  --- XXX the order of the cases is important!
   | encodedSize elem > 2*lim
-    --- XXX! might produce elems that are too small!
     = let (a,b) = cleave elem in cached a <| cached b <| after
-  | null after
-    = singleton (cached elem)
-  | encodedSize elem < lim
-    = let (a :< after') = viewl after in (cached (combine elem (unCached a)) <| after')
-  | otherwise
-    = cached elem <| after
+  | encodedSize elem < lim`div`2
+    = case (viewl after)
+      of EmptyL -> singleton (cached elem)
+         ((Cached _ a) :< after') ->
+           balanceAt lim (combine elem a) after'
+  | otherwise = cached elem <| after
 
 modify :: (DynamicBitVector a, Measured SizeRank a, Encoded a) =>
           (SizeRank -> Bool) ->
@@ -195,10 +196,20 @@ _insert f i val = modify (index i) insertIntoLeaf f
 _delete f i = modify (index i) deleteFromLeaf f
   where deleteFromLeaf (SizeRank s r, a) = delete a (i-s)
         
+balanced f = all ((<=(2 * blocksize f)).encodedSize.unCached) . toList . unwrap $ f
+
 prop_DynamicBitVector =
   test_DynamicBitVector (construct' :: [Bool] -> FDynamic EBlock)
 prop_DynamicBitVector_n = 
   test_DynamicBitVector (construct' :: [Bool] -> FDynamic NBlock)
+  
+prop_balance (NonEmpty xs) =
+  let f = construct' xs :: FDynamic EBlock
+  in forAll (chooseFIndex f) $ \i ->
+     let f' = insertMany f i xs
+         f'' = deleteMany f' i (length xs)
+         f''' = insertMany f'' i xs
+     in balanced f && balanced f' && balanced f'' && balanced f'''
 
 -- TEST INFRA
         

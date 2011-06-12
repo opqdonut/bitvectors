@@ -67,8 +67,7 @@ test_delete mk (NonEmpty xs) =
   
 test_insert_many mk (NonEmpty xs) (NonEmpty ys) =
   forAll (chooseIndex xs) $ \i ->
-  insert' xs i == deconstruct (insert' (mk xs) i)
-    where insert' vec i = foldl' (\vec val -> insert vec i val) vec ys
+  insertMany xs i ys == deconstruct (insertMany (mk xs) i ys)
   
 test_DynamicBitVector a =
   name "In test_insert:" (test_insert a) .&&.

@@ -3,6 +3,7 @@
 module BitVector where
 
 import Util
+import Data.List (foldl')
 
 import Test.QuickCheck
 
@@ -51,7 +52,10 @@ instance DynamicBitVector [Bool] where
   delete xs i = a ++ b
     where (a,_:b) = splitAt i xs
 
-
+insertMany vec i vals = foldl' (\vec val -> insert vec i val) vec vals
+deleteMany vec i k = go vec k
+  where go vec 0 = vec
+        go vec k = go (delete vec i) (k-1)
 
 -- gap encoded bit vectors
 newtype Gap = Gap {unGap :: Int}
