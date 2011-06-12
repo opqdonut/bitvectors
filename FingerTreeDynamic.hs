@@ -133,12 +133,11 @@ _size = getSize . measure . unwrap
 
 find :: FDynamic a -> (SizeRank->Bool) -> Maybe (SizeRank,a)
 find (FDynamic _ f) p =
-  let (before,after) = {-# SCC "split-p-f" #-} split p f
-      m = {-# SCC "split-measure" #-} measure before
+  let (before,after) = split p f
+      m = measure before
   in case viewl after of      
     elem :< _ -> Just (m, unCached elem)
     EmptyL    -> Nothing
-     
 
 _query :: BitVector a => FDynamic a -> Int -> Bool
 _query f i = query block i'
