@@ -39,10 +39,10 @@ node l r = Node l r (measure l +++ measure r)
 find :: Measured a v => (a -> Bool) -> Tree a v -> Maybe (a,v)
 find p t = go mempty t
   where
-    go !acc (Leaf ann v)
+    go acc (Leaf ann v)
         | p (acc +++ ann) = Just (acc,v)
         | otherwise = Nothing
-    go !acc (Node l r ann)
+    go acc (Node l r ann)
         | p (acc +++ measure l) = go acc l
         | p (acc +++ ann) = go (acc +++ measure l) r
         | otherwise = Nothing
@@ -51,10 +51,10 @@ modify :: Measured a v =>
           (a -> Bool) -> ((a,v) -> v) -> Tree a v -> (Tree a v)
 modify p f t = go mempty t
   where 
-    go !acc orig@(Leaf ann v)
+    go acc orig@(Leaf ann v)
       | p (acc +++ ann) = leaf $ f (acc,v)
       | otherwise = orig
-    go !acc orig@(Node l r ann)
+    go acc orig@(Node l r ann)
       | p (acc +++ measure l) = node (go acc l) r
       | p (acc +++ ann)       = node l          (go (acc +++ measure l) r)
       | otherwise = orig
