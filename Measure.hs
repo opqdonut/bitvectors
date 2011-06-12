@@ -18,8 +18,8 @@ import BitVector
 import Data.Monoid
 import Data.FingerTree (Measured(..))
        
-data SizeRank = SizeRank {getSize :: {-# UNPACK #-} !Int,
-                          getRank :: {-# UNPACK #-} !Int}
+data SizeRank = SizeRank {getSize :: !Int,
+                          getRank :: !Int}
     deriving (Show,Eq)
 
 instance Monoid SizeRank where
