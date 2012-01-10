@@ -61,7 +61,6 @@ Executable Testp
 
 Executable WaveletTest
   Main-is: WaveletTest.hs
-  ghc-options: -prof -auto-all
 
 Executable DynamicTest
   Main-is: DynamicTest.hs

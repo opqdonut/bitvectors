@@ -22,18 +22,23 @@ mkMods wav k = do
   wav' <- randomInsert wav
   fmap (wav':) $ mkMods wav' (k-1)
 
+keep k [] = []
+keep k (x:xs) = x:keep k (drop (k-1) xs)
+                          
+                          
 main = do
   
-  filename:mods':queries':_ <- getArgs
+  filename:mods':queries':store':_ <- getArgs
 
   let mods = read mods'
       queries = read queries'
+      store = read store'
       
   dat <- readFile filename
   
   let base = mkWavelet'fd dat
       
-  wavs <- mkMods base mods
+  wavs <- fmap (keep store) $ mkMods base mods
   
   replicateM_ queries $
     forM wavs $ randomQuery >=> print
